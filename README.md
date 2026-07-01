@@ -32,8 +32,8 @@ Install the following on your system:
 
 ## 📦 Step 1 — Clone the Project
 ```sh
-git clone https://github.com/dev-rathankumar/django_clickmart_
-cd django_clickmart_
+git clone https://github.com/tawounfouet/yt_django-clickmart-devops.git
+cd yt_django-clickmart-devops
 ```
 
 ## Step 2 - Remove Git history
@@ -51,7 +51,7 @@ git init
 git add .
 git commit -m "Initial project setup"
 git branch -M main
-git remote add origin https://github.com/<YOUR-USERNAME>/<REPOSITORY-NAME>.git
+git remote add origin https://github.com/tawounfouet/yt_django-clickmart-devops.git
 git push -u origin main
 ```
 Now you have the full source code in your own repo.
@@ -59,11 +59,11 @@ Now you have the full source code in your own repo.
 ## Run Django Locally (Without Docker)
 Create virtual environment
 ```sh
-cd backend-drf
-python3 -m venv env
-source env/bin/activate     # Mac / Linux
+cd backend
+python3.11 -m venv .venv
+source .venv/bin/activate     # Mac / Linux
 # OR
-env\Scripts\activate        # Windows
+.venv\Scripts\activate        # Windows
 ```
 
 Install dependencies
@@ -94,6 +94,9 @@ python manage.py migrate
 python manage.py runserver
 ```
 
+> [!TIP]
+> **Repli SQLite automatique** : Si l'application détecte qu'elle n'est pas exécutée dans Docker et que PostgreSQL n'est pas disponible ou injoignable, elle basculera automatiquement sur une base SQLite locale (`db.sqlite3`).
+
 Create ```.env``` file inside /frontend/ directory and write:
 ```sh
 VITE_SERVER_BASE_URL=http://127.0.0.1:8000/api/v1
@@ -117,7 +120,7 @@ docker compose version
 ```
 
 ## Create Dockerfile for backend
-Create a new file "Dockerfile" inside /backend-drf/ folder
+Create a new file "Dockerfile" inside /backend/ folder
 ```sh
 # Purpose: A Dockerfile is a step-by-step instruction file that tells Docker how to build and run our application.
 FROM python:3.10-slim
@@ -139,9 +142,9 @@ COPY . .
 
 EXPOSE 8000
 
-# gunicorn = production server, clickmart_main.wsgi:application = Django entry point, --bind 0.0.0.0:8000 = external traffic. Reminaing: tuning options
+# gunicorn = production server, config.wsgi:application = Django entry point, --bind 0.0.0.0:8000 = external traffic. Reminaing: tuning options
 # A worker is just one instance of your Django app running inside Gunicorn.
-CMD ["gunicorn", "clickmart_main.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3" , "--timeout", "180"]
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3" , "--timeout", "180"]
 ```
 
 ## Create Dockerfile for frontend
@@ -186,16 +189,16 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   backend:
-    build: ./backend-drf
+    build: ./backend
     ports:
       - "8000:8000"
     env_file:
-      - ./backend-drf/.env.docker
+      - ./backend/.env.docker
     depends_on:
       - db
     volumes:
-      - ./backend-drf/static:/app/static
-      - ./backend-drf/media:/app/media
+      - ./backend/static:/app/static
+      - ./backend/media:/app/media
     command: >
       sh -c "python manage.py collectstatic --noinput &&
              python manage.py migrate &&
@@ -308,7 +311,7 @@ Reconnect to SSH (if disconnected):
 cd /opt
 mkdir clickmart
 cd clickmart
-git clone https://github.com/your-repo.git .
+git clone https://github.com/tawounfouet/yt_django-clickmart-devops.git .
 ```
 Repo is now cloned inside /opt/clickmart
 
@@ -325,8 +328,8 @@ git push origin main
 
 ## Create Environment Files on Linode
 ```sh
-nano backend-drf/.env.production
-nano backend-drf/.env.docker
+nano backend/.env.production
+nano backend/.env.docker
 ```
 Add required environment variables inside it.
 
@@ -565,9 +568,9 @@ Gunicorn will be installed automatically via dependencies.
 Replace the Django run command with Gunicorn:
 ```
 command: >
-  gunicorn clickmart_main.wsgi:application --bind 0.0.0.0:8000 --workers 3
+  gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
 ```
-- clickmart_main.wsgi:application → Django entry point
+- config.wsgi:application → Django entry point
 - --bind 0.0.0.0:8000 → Listen on all interfaces
 - --workers 3 → Run 3 Python worker processes
 
@@ -771,7 +774,7 @@ docker compose restart nginx
 ```
 nginx:
     volumes:
-      - ./backend-drf/media:/media
+      - ./backend/media:/media
 ```
 This allows the Nginx container to access uploaded media files created by Django.
 

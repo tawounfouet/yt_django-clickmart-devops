@@ -1,0 +1,1047 @@
+# Analyse Complète de la Codebase — ClickMart
+
+> **Projet:** ClickMart — Application e-commerce (Django REST + React SPA)
+> **Date d'analyse:** Juillet 2026
+> **Portée:** Architecture, sécurité, déploiement, qualité du code, conformité DevOps
+> **Méthode:** Analyse statique de tous les fichiers source, configuration, et infrastructure
+
+---
+
+## Table des Matières
+
+1. [Vue d'ensemble](#1-vue-densemble)
+2. [Backend — Django REST Framework](#2-backend--django-rest-framework)
+3. [Frontend — React 19 + Vite 7](#3-frontend--react-19--vite-7)
+4. [Infrastructure & Déploiement](#4-infrastructure--déploiement)
+5. [CI/CD — Pipeline manquant](#5-cicd--pipeline-manquant)
+6. [Analyse de Sécurité](#6-analyse-de-sécurité)
+7. [Bugs & Problèmes Identifiés](#7-bugs--problèmes-identifiés)
+8. [Dette Technique](#8-dette-technique)
+9. [Analyse Critique](#9-analyse-critique)
+10. [Recommandations](#10-recommandations)
+11. [Annexe : Arbre des dépendances](#11-annexe--arbre-des-dépendances)
+
+---
+
+## 1. Vue d'ensemble
+
+### Stack technique
+
+| Couche | Technologie | Version |
+|--------|-------------|---------|
+| Backend | Python / Django | 5.2.15 |
+| API | Django REST Framework | 3.16.1 |
+| Auth | SimpleJWT | 5.5.1 |
+| Frontend | React | 19.1.1 |
+| Bundler | Vite | 7.1.2 |
+| UI | Bootstrap 5 + Lucide React | — |
+| Base de données | PostgreSQL 16 (prod) / SQLite3 (dev) | — |
+| Serveur WSGI | Gunicorn | (non listé dans requirements.txt) |
+| Proxy | Nginx | alpine |
+| Conteneurisation | Docker + Docker Compose | — |
+| CI/CD | GitHub Actions | (non implémenté) |
+
+### Structure du projet
+
+```
+yt_django-clickmart-devops/
+├── backend/                          # Application Django
+│   ├── config/                       # Configuration projet
+│   │   ├── settings.py               # Settings + fallback DB
+│   │   ├── urls.py                   # URLs racine
+│   │   ├── wsgi.py / asgi.py         # Points d'entrée
+│   ├── api/                          # Hub de routage (aucun modèle)
+│   │   └── urls.py                   # Toutes les routes API
+│   ├── users/                        # Auth (User personnalisé)
+│   ├── products/                     # Catalogue produits
+│   ├── carts/                        # Panier
+│   ├── orders/                       # Commandes + email
+│   ├── static/                       # Vendored (collectstatic)
+│   ├── media/                        # Uploads utilisateurs
+│   ├── Dockerfile                    # Image Docker backend
+│   ├── requirements.txt              # Dépendances Python
+│   └── .env.example / .env.docker    # Variables d'environnement
+│
+├── frontend/                         # Application React
+│   ├── src/
+│   │   ├── pages/                    # 14 pages (Home, Cart, Login, etc.)
+│   │   ├── components/               # 5 composants partagés
+│   │   ├── Provider/                 # AuthProvider + CartProvider
+│   │   ├── hooks/                    # useAuth + useAxios (intercepteurs JWT)
+│   │   ├── context/                  # Contextes React
+│   │   └── api/index.js              # Instance Axios
+│   ├── Dockerfile                    # Build multi-stage (Node → Nginx)
+│   └── package.json
+│
+├── nginx/
+│   └── default.conf                  # Reverse proxy HTTP
+│
+├── docker-compose.yml                # Orchestration complète
+├── .github/workflows/                # DOSSIER VIDE (CI/CD à implémenter)
+├── .gitignore                        # 180 lignes (ignore Dockerfiles, .env.docker/prod)
+├── README.md                         # Tutorial déploiement (820 lignes)
+└── AGENTS.md                         # Instructions OpenCode
+```
+
+### Migration en cours
+
+Le dépôt a été **restructuré** : l'ancien dossier `backend-drf/` (supprimé, tracké par git) a été remplacé par `backend/` (non tracké). Tout commit futur doit explicitement `git add backend/`. Le `.gitignore` référence encore des chemins `backend-drf/`.
+
+---
+
+## 2. Backend — Django REST Framework
+
+### 2.1 Configuration (`config/settings.py`)
+
+#### Base de données — double fallback
+
+```python
+# Logique de fallback (lignes 85-148) :
+# 1. Si /.dockerenv existe → force PostgreSQL
+# 2. Si psycopg2 non importable → SQLite
+# 3. Si variables DB_NAME/USER/HOST manquantes → SQLite
+# 4. Si connexion échoue → SQLite (exception silencieuse)
+```
+
+Le fallback est **agressif** : si PostgreSQL est temporairement indisponible, l'appli bascule silencieusement vers SQLite avec des données potentiellement périmées. Aucun avertissement n'est loggé.
+
+#### Variables d'environnement (python-decouple)
+
+| Variable | Défaut | Risque |
+|----------|--------|--------|
+| `SECRET_KEY` | Aucun | **CRASH** si `.env` manquant |
+| `DEBUG` | `False` | ✅ Correct |
+| `DB_NAME/USER/HOST/PORT` | Aucun | Fallback vers SQLite |
+| `EMAIL_HOST_USER/PASSWORD` | Aucun | Email non fonctionnel sans ces vars |
+
+#### Migration headers
+
+Les fichiers de migration portent l'en-tête `# Generated by Django 6.0` alors que le runtime est Django 5.2.15. C'est un artefact inoffensif mais déroutant.
+
+### 2.2 Routage API (`api/urls.py`)
+
+Toutes les routes sont centralisées dans `api/urls.py` sous le préfixe `/api/v1/` :
+
+```
+POST   /api/v1/register/           → users.views.RegisterView        [PUBLIC]
+POST   /api/v1/token/              → TokenObtainPairView             [PUBLIC]
+POST   /api/v1/token/refresh/      → TokenRefreshView                [PUBLIC]
+GET    /api/v1/profile/            → users.views.ProfileView         [AUTH]
+PATCH  /api/v1/profile/            → users.views.ProfileView         [AUTH]
+GET    /api/v1/products/           → products.views.ProductListView   [PUBLIC]
+GET    /api/v1/products/<pk>/      → products.views.ProductDetailView [PUBLIC]
+GET    /api/v1/cart/               → carts.views.CartView             [AUTH]
+POST   /api/v1/cart/add/           → carts.views.AddToCartView        [AUTH]
+PATCH  /api/v1/cart/items/<id>/    → carts.views.ManageCartItemView   [AUTH]
+DELETE /api/v1/cart/items/<id>/    → carts.views.ManageCartItemView   [AUTH]
+POST   /api/v1/orders/place/       → orders.views.PlaceOrderView      [AUTH]
+GET    /api/v1/orders/             → orders.views.MyOrdersView        [AUTH]
+GET    /api/v1/orders/<pk>/        → orders.views.OrderDetailView     [AUTH]
+```
+
+L'app `api/` est un simple hub de routage : aucun modèle, vue, ou admin propre.
+
+### 2.3 Modèles et relations
+
+```
+User ──1:1── Cart ──1:N── CartItem ──N:1── Product
+ │                                           │
+ └──────────1:N── Order ──1:N── OrderItem ───┘ (on_delete=PROTECT)
+```
+
+| Modèle | Champs clés | Contraintes |
+|--------|-------------|-------------|
+| `User(AbstractUser)` | `email` (unique, USERNAME_FIELD) | `username` toujours requis |
+| `Product` | `price` (max 9999.99), `stock`, `tax_percent` | `is_active` pour soft-delete |
+| `Cart` | `user` (OneToOne) | Créé automatiquement |
+| `CartItem` | `product`, `quantity` (min 1) | Pas de contrainte unique (cart, product) |
+| `Order` | `status` (PENDING/CONFIRMED/DELIVERED) | Adresse nullable |
+| `OrderItem` | `price` + `total_price` (snapshot) | `on_delete=PROTECT` sur Product |
+
+**Propriétés calculées** sur `Cart` :
+- `subtotal` = sum(price × quantity) — O(n) à chaque accès, non caché
+- `tax_amount` = sum(price × quantity × tax_percent / 100)
+- `grand_total` = subtotal + tax_amount, quantifié à 2 décimales
+
+### 2.4 Flux métier critique — Placement de commande
+
+La vue `PlaceOrderView` est le point le plus complexe (86 lignes) avec **un bug d'intégrité** :
+
+```
+1.  GET Cart (peut lever Cart.DoesNotExist → 500)
+2.  ✅ Vérifier que le panier n'est pas vide
+3.  ❌ CRÉER la commande Order (AVANT validation stock) ← BUG
+4.  ❌ Valider le stock pour chaque item
+5.      → Si échec : retour 400, mais Order déjà créé (orphelin)
+6.  ✅ Décrémenter le stock produit
+7.  ✅ Créer les OrderItems
+8.  ✅ Vider le panier
+9.  ❌ Envoyer email (fail_silently=False → 500 si échec)
+10. ✅ Retourner 201
+```
+
+**Deux bugs :**
+1. **Orphan Order** : la commande est créée avant la validation du stock (lignes 25-35 vs 42-44)
+2. **Email failure** = 500 : si l'email échoue, la transaction n'est pas rollbackée, l'ordre persiste mais le client voit une erreur
+
+### 2.5 Utilitaire email (`orders/utils.py`)
+
+```python
+def send_order_notification(order):
+    send_mail(
+        subject=f'Order #{order.id} is received',
+        message=f"""...{order.user.first_name}...{order.grand_total}...""",
+        from_email=settings.EMAIL_HOST_USER,
+        recipient_list=[order.user.email],
+        fail_silently=False
+    )
+```
+
+- **Plain text uniquement** — pas de template HTML
+- **fail_silently=False** — une panne SMTP fait planter la vue
+- **Pas de fallback console** en développement
+
+### 2.6 Sérialiseurs
+
+Tous les sérialiseurs utilisent `fields = "__all__"` :
+
+| Sérialiseur | Exposition |
+|-------------|------------|
+| `ProductSerializer` | Expose `is_active`, `created_at`, `updated_at` |
+| `OrderSerializer` | Pas de nested OrderItems |
+| `CartSerializer` | Items nested, propriétés computed |
+| `UserSerializer` | `email` en read-only |
+| `UserRegisterSerializer` | `password` en write-only |
+
+**Aucune méthode `validate_*` personnalisée** nulle part.
+
+### 2.7 Tests
+
+**Zéro test effectif** — 5 fichiers stubs vides (3 lignes chacun) :
+
+```
+api/tests.py       # Stub vide
+users/tests.py     # Stub vide
+products/tests.py  # Stub vide
+carts/tests.py     # Stub vide
+orders/tests.py    # Stub vide
+```
+
+Aucun outil de test configuré : pas de pytest, pas de coverage, pas de fixture, pas de test DB.
+
+### 2.8 Outillage dev manquant
+
+| Outil | Statut |
+|-------|--------|
+| Pre-commit | ❌ Non configuré |
+| flake8 / ruff / pylint | ❌ Aucun |
+| black / isort | ❌ Aucun |
+| pytest / coverage | ❌ Aucun |
+| pyproject.toml / setup.py | ❌ Aucun |
+| Makefile | ❌ Aucun |
+
+---
+
+## 3. Frontend — React 19 + Vite 7
+
+### 3.1 Architecture
+
+```
+<StrictMode>
+  <AuthProvider>                              ← localStorage → auth state
+    <CartProvider>                            ← Reducer (useReducer)
+      <App>
+        <BrowserRouter>
+          <Header />                          ← Navbar + cart badge + profil
+          <Routes>
+            {/* Publiques */}
+            <Home>       → <Hero /> + <Products /></Home>
+            <ProductDetail />                 ← Quantité + AddToCart
+            <Cart />                          ← Panier + récap
+            <Checkout />                      ← 2 étapes : Livraison → Paiement
+            <Login /> | <Register />
+            <OrderSuccess />                  ← Confirmation post-achat
+
+            {/* Protégées (PrivateRoute) */}
+            <Dashboard>
+              <Sidebar />
+              <Outlet>
+                <DashboardHome />             ← Profil + commandes récentes
+                <ProfileSettings />           ← SKELETON (non fonctionnel)
+                <Orders />                    ← Liste + modal détail
+              </Outlet>
+            </Dashboard>
+          </Routes>
+          <Footer />
+        </BrowserRouter>
+      </App>
+    </CartProvider>
+  </AuthProvider>
+</StrictMode>
+```
+
+### 3.2 Flux d'authentification
+
+```
+Login:
+  POST /token/ → { access, refresh }
+    → localStorage.setItem("accessToken", access)
+    → localStorage.setItem("refreshToken", refresh)
+    → AuthContext.setAuth({ accessToken, refreshToken })
+    → navigate("/")
+
+Token refresh (intercepteur Axios):
+  401 sur requête → singleton isRefreshing
+    → POST /token/refresh/
+    → Nouveaux tokens → localStorage + context
+    → Ré-essaye la requête originale
+  Échec refresh → clear tokens → navigate("/")
+
+Logout:
+  clear localStorage
+  setAuth({})
+  reset cart
+  navigate("/")
+```
+
+**Problème critique** : `useAxios()` attache des intercepteurs à l'instance Axios **partagée** (`api`). Chaque composant qui appelle `useAxios()` ajoute une nouvelle paire d'intercepteurs. Résultat : N paires d'intercepteurs s'exécutent sur chaque requête.
+
+### 3.3 Appels API
+
+| Endpoint | Méthode | Utilisé dans | Auth |
+|----------|---------|--------------|------|
+| `/products/` | GET | Products.jsx | ❌ |
+| `/products/:id/` | GET | ProductDetails.jsx | ❌ |
+| `/token/` | POST | Login.jsx | ❌ |
+| `/token/refresh/` | POST | useAxios.js | ❌ |
+| `/register/` | POST | Register.jsx | ❌ |
+| `/cart/` | GET | Cart, ProductDetails, Home | ✅ |
+| `/cart/add/` | POST | ProductDetails | ✅ |
+| `/cart/items/:id/` | PATCH/DELETE | Cart, ProductDetails | ✅ |
+| `/orders/` | GET | Orders, DashboardHome | ✅ |
+| `/orders/:id/` | GET | OrderDetail | ✅ |
+| `/orders/place/` | POST | Checkout | ✅ |
+| `/profile/` | GET | Navbar, Checkout, DashboardHome | ✅ |
+
+### 3.4 Gestion d'état
+
+| Contexte | Technologie | State |
+|----------|-------------|-------|
+| `AuthContext` | `useState` | `{ accessToken, refreshToken }` |
+| `CartContext` | `useReducer` | `{ items, total, itemCount, loading }` |
+
+**Remarque :** Le state cart initial inclut `total`, `itemCount`, `loading` mais PAS `subtotal` (pourtant présent dans l'action `SET_CART`).
+
+### 3.5 Bugs frontend identifiés
+
+1. **Intercepteurs dupliqués** : `useAxios()` attache une nouvelle paire à chaque appel → N paires
+2. **Typo dans cleanup** : `api.interceptors.response.eject` au lieu de `eject` (erreur runtime)
+3. **Checkout bug** : Le récap paiement référence `shippingAddress.firstName`/`.lastName` jamais définis
+4. **Erreur silencieuse** : `errorMsg` déclaré dans Checkout mais jamais affiché à l'utilisateur
+5. **ProfileSettings skeleton** : Composant non fonctionnel (user = `""`, API non appelée)
+6. **react-toastify installé mais jamais utilisé** : 0 appels à `toast()`
+7. **react-bootstrap installé mais jamais utilisé** : Tout le markup Bootstrap est en classes HTML brutes
+8. **`productsData.js`** : Fichier de données statiques (6 produits mock) mort — jamais importé
+9. **Titre "Vite + React"** : `index.html` non personnalisé pour le projet
+
+### 3.6 Dépendances inutilisées
+
+| Dépendance | Coût | Raison |
+|-----------|------|--------|
+| `react-bootstrap` ~400KB | Installé, 0 imports | Tout le UI utilise des classes Bootstrap brutes |
+| `react-toastify` ~30KB | Installé, CSS importé, 0 calls | `console.error` utilisé à la place |
+| `@types/react` + `@types/react-dom` | Installés mais projet JSX | Inutiles sans TypeScript |
+
+---
+
+## 4. Infrastructure & Déploiement
+
+### 4.1 Docker Compose
+
+```yaml
+services:
+  db:       postgres:16-alpine      # Volume: postgres_data
+  backend:  build ./backend          # Commande: collectstatic → migrate → gunicorn
+  frontend: build ./frontend         # ARG VITE_SERVER_BASE_URL="/api/v1"
+  nginx:    nginx:alpine             # Ports 80:80 + 443:443, volume nginx.conf
+```
+
+**Points critiques :**
+- `gunicorn` **n'est pas dans `requirements.txt`** — le Docker build plantera au runtime
+- `collectstatic` exécuté à chaque démarrage (bonne pratique)
+- `migrate` exécuté à chaque démarrage (pratique en dev, risqué en prod)
+- Aucun `healthcheck` sur aucun service
+- Aucun réseau personnalisé (réseau default bridge auto-créé)
+
+### 4.2 Dockerfiles
+
+**Backend** (`python:3.10-slim`) :
+- Installe `gcc` + `libpq-dev` (inutiles avec `psycopg2-binary`)
+- Pas de user non-root
+- Image Python 3.10 (obsolète en 2026, 3.12+ standard)
+- Pas de healthcheck
+
+**Frontend** (multi-stage) :
+- Stage 1 : `node:18` build → `dist/`
+- Stage 2 : `nginx:alpine` sert `dist/` sur le port 80
+- Build arg `VITE_SERVER_BASE_URL` injecté au build time (pas de runtime env)
+
+### 4.3 Nginx Reverse Proxy
+
+| Path | Cible | Type |
+|------|-------|------|
+| `/` | `frontend:80` | SPA React |
+| `/api/` | `backend:8000` | API Django |
+| `/admin/` | `backend:8000` | Admin Django |
+| `/static/` | `backend:8000` | Fichiers statiques |
+| `/media/` | `alias /media/` | Fichiers uploadés (mount direct) |
+| `/.well-known/acme-challenge/` | `root /var/www/certbot` | Let's Encrypt |
+
+**Configuration HTTP uniquement** dans le dépôt. Le HTTPS est server-managed (README décrit un second server block avec certificats Let's Encrypt).
+
+### 4.4 Environnements Docker
+
+```
+backend/.env.docker  → backend service (SECRET_KEY, DEBUG, DB vars, EMAIL vars)
+backend/.env.production → db service (POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB)
+```
+
+Ces fichiers sont **gitignorés** (lignes 175-180 du `.gitignore`).
+
+### 4.5 Déploiement (README)
+
+1. **Dev local** : `python manage.py runserver` + `npm run dev`
+2. **Dockerisation** : `docker compose up --build`
+3. **VPS Linode** : Installation Docker, clone dans `/opt/clickmart`
+4. **Nginx + Domaine** : DNS A record → IP Linode, reverse proxy
+5. **SSL** : Certbot + Let's Encrypt (webroot)
+6. **GitHub Actions** : (non implémenté) push → SSH → `git pull` → `docker compose up --build -d`
+
+---
+
+## 5. CI/CD — Pipeline manquant
+
+Le dossier `.github/workflows/` **existe mais est vide**. Aucun fichier de workflow n'a été créé.
+
+Le README décrit le pipeline souhaité (`automate.yml`) :
+
+```yaml
+name: Auto Deploy to Linode
+on:
+  push:
+    branches: [main]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.LINODE_HOST }}
+          username: ${{ secrets.LINODE_USER }}
+          key: ${{ secrets.LINODE_SSH_KEY }}
+          script: |
+            cd /opt/clickmart
+            git pull origin main
+            docker compose up --build -d
+```
+
+**Secrets GitHub requis :** `LINODE_HOST`, `LINODE_USER`, `LINODE_SSH_KEY`
+
+**Points bloquants pour le CI/CD :**
+1. Les Dockerfiles et `docker-compose.yml` sont gitignorés → pas présents dans le checkout
+2. Les fichiers `.env.docker` et `.env.production` sont gitignorés → pas de secrets en CI
+3. `gunicorn` absent de `requirements.txt` → le conteneur backend plantera
+4. `ALLOWED_HOSTS = []` en dur dans `settings.py` → rejet de toutes les requêtes
+5. `CORS_ALLOWED_ORIGINS` limité à `localhost:5173` → CORS bloqué en prod
+
+---
+
+## 6. Analyse de Sécurité
+
+### 6.1 Problèmes bloquants (CRITICAL)
+
+| # | Problème | Fichier:ligne | Impact |
+|---|----------|---------------|--------|
+| 1 | `ALLOWED_HOSTS = []` | `settings.py:30` | Django rejette TOUTES les requêtes en production |
+| 2 | `CORS_ALLOWED_ORIGINS = ['http://localhost:5173']` | `settings.py:221` | Bloque les requêtes cross-origin depuis n'importe quel autre domaine |
+
+### 6.2 Problèmes haute sévérité (HIGH)
+
+| # | Problème | Fichier:ligne | Impact |
+|---|----------|---------------|--------|
+| 3 | `int(quantity)` sans try/except | `carts/views.py:43,58` | Crash 500 sur input non-numérique |
+| 4 | `Cart.objects.get()` sans try/except | `orders/views.py:19` | Crash 500 si pas de panier |
+| 5 | Commande créée avant validation stock | `orders/views.py:25-35 vs 42-44` | Orphelins Order records |
+| 6 | `send_mail(fail_silently=False)` | `orders/utils.py:20` | Panne SMTP = crash 500 |
+
+### 6.3 Problèmes moyens (MEDIUM)
+
+| # | Problème | Fichier:ligne | Impact |
+|---|----------|---------------|--------|
+| 7 | `SECRET_KEY` sans défaut | `settings.py:25` | Crash si `.env` manquant |
+| 8 | Pas de rate limiting | `users/views.py` | Brute force possible sur login/register |
+| 9 | Pas de rotation refresh token | `settings.py:206-207` | simplejwt config par défaut |
+| 10 | Fallback DB silencieux | `settings.py:131` | Bascule imprévue PostgreSQL→SQLite |
+| 11 | Root user dans Docker | `backend/Dockerfile` | Container root par défaut |
+
+### 6.4 Problèmes bas (LOW)
+
+| # | Problème | Fichier:ligne |
+|---|----------|---------------|
+| 12 | Pas de reset password | Aucun endpoint |
+| 13 | Pas de vérification email | `users/views.py` |
+| 14 | `fields = "__all__"` expose métadonnées | Multiples sérialiseurs |
+| 15 | Intercepteurs Axios dupliqués | `frontend/src/hooks/useAxios.js` |
+
+### 6.5 Dépendances vulnérables (vérification)
+
+**Recommandé :** Scanner avec `pip-audit` (backend) et `npm audit` (frontend) avant déploiement.
+
+---
+
+## 7. Bugs & Problèmes Identifiés
+
+### 7.1 Backend
+
+| # | Bug | Sévérité | Localisation |
+|---|-----|----------|-------------|
+| B1 | **Orphan Order** : Order créée avant validation stock | **HIGH** | `orders/views.py:25-44` |
+| B2 | **Crash sans panier** : Cart.DoesNotExist non catché | **HIGH** | `orders/views.py:19` |
+| B3 | **Crash input non-numérique** : `int()` sans try | **HIGH** | `carts/views.py:43,58` |
+| B4 | **Email failure = crash** : fail_silently=False | **HIGH** | `orders/utils.py:20` |
+| B5 | **Pas de pagination** : tous les produits d'un coup | MEDIUM | `products/views.py:8` |
+| B6 | **Subtotal O(n)** : propriété calculée à chaque accès | LOW | `carts/models.py:17` |
+| B7 | **gunicorn manquant** : pas dans requirements.txt | **HIGH** | Infrastructure |
+| B8 | **ALLOWED_HOSTS vide** : bloquant en prod | **CRITICAL** | `settings.py:30` |
+
+### 7.2 Frontend
+
+| # | Bug | Sévérité | Localisation |
+|---|-----|----------|-------------|
+| B9 | **Intercepteurs dupliqués** : N paires par composant | MEDIUM | `hooks/useAxios.js:7` |
+| B10 | **Typo cleanup** : `eject` → `eject` | MEDIUM | `hooks/useAxios.js:72` |
+| B11 | **Checkout firstName/lastName** : non définis | LOW | `pages/Checkout.jsx` |
+| B12 | **Erreur silencieuse** : errorMsg jamais affiché | LOW | `pages/Checkout.jsx` |
+| B13 | **ProfileSettings skeleton** : non fonctionnel | MEDIUM | `pages/ProfileSetting.jsx` |
+| B14 | **Données mock mortes** : productsData.js jamais importé | LOW | `data/products.js` |
+| B15 | **Titre Vite par défaut** | LOW | `index.html:6` |
+
+### 7.3 Infrastructure
+
+| # | Bug | Sévérité | Localisation |
+|---|-----|----------|-------------|
+| B16 | **gunicorn absent** de requirements.txt | **CRITICAL** | `backend/requirements.txt` |
+| B17 | **Dockerfiles gitignorés** : pas dans le checkout CI | **HIGH** | `.gitignore:175-179` |
+| B18 | **Pas de healthcheck** | MEDIUM | `docker-compose.yml` |
+| B19 | **Python 3.10 obsolète** | LOW | `backend/Dockerfile` |
+
+---
+
+## 8. Dette Technique
+
+### 8.1 Code
+
+| Élément | Dette | Effort estimé |
+|---------|-------|---------------|
+| `fields = "__all__"` dans 5 sérialiseurs | Perte de contrôle sur l'API | Faible (30 min) |
+| Pas de validateurs personnalisés | Validation limitée aux modèles | Faible (1h) |
+| Pas de tests | Aucune couverture | **Élevé** (semaine+) |
+| Propriétés Cart non cachées | O(n) à chaque accès API | Faible (30 min) |
+| Pas de pagination produits | Impossible à scaler | Faible (30 min) |
+
+### 8.2 Architecture
+
+| Élément | Dette | Effort estimé |
+|---------|-------|---------------|
+| Pas de service layer | Logique métier dans les vues | Moyen (4h) |
+| Pas de gestionnaire d'exceptions DRF | Erreurs 500 non gérées | Faible (1h) |
+| Pas de middleware logging | Aucune traçabilité | Faible (1h) |
+| Pas d'OpenAPI/Swagger | Pas de documentation API | Moyen (4h) |
+
+### 8.3 Infrastructure
+
+| Élément | Dette | Effort estimé |
+|---------|-------|---------------|
+| Dockerfiles gitignorés | Impossible CI/CD | **Bloquant** |
+| gunicorn manquant | Container backend non fonctionnel | **Bloquant** |
+| ALLOWED_HOSTS en dur | Inutilisable en prod | **Bloquant** |
+| CORS en dur | Inutilisable en prod | Faible (30 min) |
+
+### 8.4 Dépendances inutilisées
+
+```
+# npm packages à nettoyer
+react-bootstrap        # 0 imports → ~400KB économisables
+react-toastify         # 0 appels → ~30KB économisables
+@types/react           # Inutile sans TS
+@types/react-dom       # Inutile sans TS
+```
+
+---
+
+## 9. Analyse Critique
+
+> Cette section évalue la qualité intrinsèque des choix d'architecture, de conception et d'implémentation. Elle distingue ce qui est **bien fait**, ce qui est **discutable**, et ce qui relève d'**anti-patrons**.
+
+---
+
+### 9.1 Ce qui est bien fait
+
+#### 9.1.1 Structure Django modulaire
+
+Le découpage en 4 apps (`users`, `products`, `carts`, `orders`) est **propre** : chaque app a une responsabilité unique, ses propres modèles, vues et sérialiseurs. C'est l'approche Django canonique. L'app `api/` agit comme hub de routage, ce qui centralise la surface API en un seul fichier — choix pragmatique.
+
+#### 9.1.2 Hub de routage API centralisé
+
+Plutôt que de disperser les URLs dans chaque app (avec des `urls.py` locaux), toutes les routes sont définies dans `api/urls.py`. Avantage : **visibilité complète de l'API en un coup d'œil**. Inconvénient : crée une dépendance du hub vers toutes les apps. Pour la taille du projet, c'est un bon compromis.
+
+#### 9.1.3 Custom User avec email comme identifiant
+
+```python
+class User(AbstractUser):
+    email = models.EmailField(unique=True)
+    USERNAME_FIELD = "email"
+```
+
+C'est la **bonne pratique Django** pour l'authentification moderne. `AbstractUser` est préféré à `AbstractBaseUser` quand on n'a pas besoin de réinventer la roue. Le choix de `REQUIRED_FIELDS = ["username"]` préserve la compatibilité avec l'admin Django.
+
+#### 9.1.4 Auto-fallback PostgreSQL → SQLite
+
+La logique de fallback DB (lignes 85-148 de `settings.py`) est une **bonne idée pour le développement** : zéro configuration pour un nouveau développeur. Elle devient risquée en production à cause de sa nature silencieuse, mais le principe est sain.
+
+#### 9.1.5 Multi-stage Dockerfile frontend
+
+Le frontend Dockerfile en deux étapes (build Node → serveur Nginx) est **la bonne pratique standard** : image de production légère (~25MB au lieu de ~1GB avec Node).
+
+#### 9.1.6 Protection des tokens JWT en localStorage avec intercepteur
+
+Le pattern d'intercepteur Axios avec token refresh automatique est **bien conçu** : singleton `isRefreshing` pour éviter les refresh concurrents, file d'attente implicite via `refreshPromise`, et cleanup des tokens à l'échec.
+
+#### 9.1.7 Reverse proxy Nginx propre
+
+La séparation des routes (`/` → frontend, `/api/` → backend, `/admin/` → Django admin, `/media/` → direct) est **propre et standard**. Le `alias` pour les media files évite un aller-retour inutile vers Gunicorn.
+
+#### 9.1.8 `OrderItem.on_delete=PROTECT`
+
+```python
+product = models.ForeignKey(Product, on_delete=models.PROTECT)
+```
+
+C'est **correct** pour un e-commerce : on ne peut pas supprimer un produit qui a déjà été commandé. Cela préserve l'intégrité historique des commandes.
+
+---
+
+### 9.2 Choix discutables
+
+#### 9.2.1 `fields = "__all__"` dans tous les sérialiseurs
+
+**Problème :** Les 5 sérialiseurs utilisent `fields = "__all__"`, ce qui expose des champs internes comme `is_active`, `created_at`, `updated_at` dans l'API publique.
+
+**Pourquoi c'est discutable :** Cela signifie que le contrat API change à chaque modification de modèle. Un champ ajouté pour une raison interne se retrouve automatiquement exposé. La devise DRF est : *"Explicit is better than implicit"*. `fields = "__all__"` est acceptable pour un prototype, dangereux pour la production.
+
+**Alternative :** Utiliser des listes explicites de champs, ou au minimum `read_only_fields` pour les métadonnées.
+
+#### 9.2.2 Pas de pagination sur le listing produits
+
+`ProductListView` hérite de `ListAPIView` sans pagination. Pour un catalogue e-commerce avec des centaines de produits, la réponse JSON unique devient :
+- **Lourde** : plusieurs MB téléchargés à chaque visite
+- **Lente** : sérialisation de tous les produits à chaque requête
+- **Inefficace** : pas de caching partiel possible
+
+**Jugement :** C'est un oubli typique de développement précoce, mais critique pour le passage en production.
+
+#### 9.2.3 `on_delete=CASCADE` sur CartItem.product
+
+```python
+class CartItem(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+```
+
+Si un produit est supprimé, **tous les CartItems associés sont supprimés en cascade**. C'est problématique : un utilisateur pourrait perdre son panier en cours. Le comportement attendu serait plutôt :
+- `SET_NULL` (avec `null=True`) : le panier garde l'item mais sans produit
+- Ou `PROTECT` : empêche la suppression si des paniers actifs contiennent le produit
+
+**Ironie :** `OrderItem` a correctement `PROTECT`, mais pas `CartItem`.
+
+#### 9.2.4 Propriétés Cart non cachées
+
+Les propriétés `subtotal`, `tax_amount`, `grand_total` sur `Cart` sont calculées en O(n) à chaque accès. Pour un panier de 50 items, c'est négligeable. Mais ces propriétés sont appelées **à chaque sérialisation** du panier, donc à chaque requête `GET /cart/`. Sans caching, la charge DB est multipliée par le nombre d'items.
+
+**Alternative :** Soit stocker ces valeurs en colonnes DB (mises à jour via `save()` ou signal), soit utiliser `@cached_property` avec invalidation.
+
+#### 9.2.5 Version Python 3.10 dans le Dockerfile
+
+Python 3.10 est sorti en octobre 2021. En juillet 2026, il est dans sa phase de *maintenance only* (fin de vie octobre 2026). La version standard est maintenant 3.12+ (3.13 disponible).
+
+**Pourquoi c'est un problème :** Plus de backports de sécurité, packages récents qui abandonnent le support 3.10, et impression de code legacy.
+
+#### 9.2.6 Build-time vs Runtime env vars pour le frontend
+
+```dockerfile
+ARG VITE_SERVER_BASE_URL
+ENV VITE_SERVER_BASE_URL=$VITE_SERVER_BASE_URL
+```
+
+Les variables d'environnement Vite sont injectées **au build time**. Cela signifie qu'il faut reconstruire l'image Docker pour changer l'URL de l'API. Pour un déploiement multi-environnement (staging, prod), c'est contraignant.
+
+**Alternative :** Utiliser un endpoint de configuration runtime, ou un placeholder remplacé au démarrage du conteneur.
+
+#### 9.2.7 Adresse nullable sur Order
+
+Tous les champs d'adresse (`address`, `phone`, `city`, `state`, `zip_code`) sont `null=True, blank=True`. Pour un e-commerce, l'adresse de livraison est **obligatoire**. Cette décision repousse la validation au niveau de la vue (formulaire Checkout), ce qui est correct en pratique mais devrait être renforcé au niveau modèle.
+
+#### 9.2.8 Pas d'ASGI utilisé
+
+Le projet inclut `asgi.py` mais le déploiement utilise exclusivement Gunicorn (WSGI). ASGI est un code mort qui suggère une intention de support WebSocket jamais concrétisée. Mieux vaut le supprimer ou le documenter explicitement.
+
+---
+
+### 9.3 Anti-patrons manifestes
+
+#### 9.3.1 Logique métier dans les vues (Fat Views)
+
+Le placement de commande (`PlaceOrderView`, 86 lignes) cumule :
+- Validation
+- Orchestration métier (création Order, validation stock, décrémentation, création OrderItems, envoi email)
+- Gestion d'erreurs
+- Sérialisation
+
+C'est l'anti-patron **"Fat Views"** du Django. Conséquences :
+- Impossible de tester la logique métier sans appeler l'API HTTP
+- Duplication si un autre endpoint (admin, CLI) doit placer une commande
+- Difficile à lire et maintenir
+
+**Solution :** Extraire un service `OrderService.create_order(user, cart, shipping_data)` qui encapsule la logique métier et peut être testé unitairement.
+
+#### 9.3.2 Transaction atomique absente
+
+Le flux `PlaceOrderView` n'est pas enveloppé dans `transaction.atomic()`. Cela signifie que si l'étape 9 (email) échoue après les étapes 6-8 (décrémentation stock, création OrderItems, vidage du panier), **les données restent dans un état incohérent** : stock décrémenté mais commande non confirmée côté client.
+
+**C'est un bug d'intégrité réelle.**
+
+#### 9.3.3 Duplication d'intercepteurs Axios
+
+```javascript
+// useAxios.js — appelé par N composants
+useEffect(() => {
+    const requestIntercept = api.interceptors.request.use(...)
+    const responseIntercept = api.interceptors.response.use(...)
+    return () => {
+        api.interceptors.request.eject(requestIntercept)  // typo: "eject"
+        api.interceptors.response.eject(responseIntercept)
+    }
+}, [setAuth, navigate])
+```
+
+Chaque composant qui appelle `useAxios()` ajoute **une nouvelle paire d'intercepteurs** à l'instance Axios partagée `api`. Si `Navbar`, `Cart`, `Checkout`, et `DashboardHome` sont montés simultanément, chaque requête API déclenche **4 paires d'intercepteurs** (8 handlers exécutés en chaîne).
+
+**C'est un problème de performance et un risque de bug** : les effets de bord des intercepteurs s'exécutent N fois.
+
+**Solution :** Attacher les intercepteurs une seule fois, idéalement dans un module ou un composant racine.
+
+#### 9.3.4 Gestion d'erreurs silencieuse
+
+```javascript
+// Checkout.jsx
+try {
+    const response = await axiosapi.post("/orders/place/", { shippingAddress });
+    // handle success
+} catch (error) {
+    const errorMsg = error.response?.data?.message || "Order placement failed";
+    // ❌ errorMsg n'est JAMAIS affiché à l'utilisateur
+}
+```
+
+et dans les autres composants :
+
+```javascript
+catch (error) {
+    console.error("Failed to load cart:", error);  // utilisateur jamais informé
+}
+```
+
+L'utilisateur ne voit **aucun feedback** en cas d'échec de paiement. Les erreurs sont systématiquement avalées (`console.error`). C'est un anti-patron UX majeur : l'utilisateur clique "Commander", voit un spinner, puis... rien.
+
+#### 9.3.5 `react` importé mais inutilisé dans un fichier data
+
+```javascript
+// data/products.js
+import React from 'react';  // ❌ inutile dans un fichier data
+export const productsData = [ ... ];
+```
+
+Ce fichier n'est jamais importé, mais s'il l'était, l'import React serait mort (pas de JSX). Cela suggère une génération automatique ou un copier-coller négligent.
+
+#### 9.3.6 Migration headers trompeurs
+
+Tous les fichiers de migration portent `# Generated by Django 6.0` mais le projet utilise Django 5.2.15. C'est probablement un artefact d'une version de développement de Django. Sans危害 direct, cela crée de la confusion et pourrait masquer de vrais problèmes de compatibilité.
+
+#### 9.3.7 `gunicorn` dans le CMD mais pas dans `requirements.txt`
+
+Le Dockerfile backend exécute `gunicorn` mais cette dépendance n'est pas listée dans `requirements.txt`. Si l'image est construite à partir de zéro, le conteneur **plantera au démarrage** avec `ModuleNotFoundError: No module named 'gunicorn'`.
+
+C'est soit :
+- Un oubli dans `requirements.txt`
+- Une dépendance installée globalement dans l'image de base Python (ce qui n'est pas le cas de `python:3.10-slim`)
+
+**Dans les deux cas, c'est un bug bloquant.**
+
+---
+
+### 9.4 Décisions architecturales à interroger
+
+#### 9.4.1 Logique de fallback DB en production
+
+La décision d'avoir un fallback automatique PostgreSQL → SQLite est **dangereuse en production** :
+- Si PostgreSQL a une panne réseau temporaire, l'appli bascule **silencieusement** vers SQLite avec **zéro donnée**
+- Les données écrites dans SQLite pendant le fallback sont **perdues** quand PostgreSQL revient
+- Aucun log d'avertissement n'est émis
+
+Une meilleure approche : avoir le fallback uniquement en `DEBUG=True`, et en production, laisser l'erreur de connexion remonter (avec une page d'erreur 503).
+
+#### 9.4.2 Gitignore des fichiers d'infrastructure
+
+```gitignore
+frontend/Dockerfile
+backend/Dockerfile
+docker-compose.yml
+```
+
+La décision d'ignorer les Dockerfiles et `docker-compose.yml` signifie que :
+- Le CI/CD ne peut pas builder les images (fichiers absents du checkout)
+- La recette de déploiement (README) est déconnectée du code
+- Toute modification de l'infrastructure doit être communiquée hors-git
+
+C'est un choix d'architecture délibéré (documenté comme "server-managed") mais qui **rend le CI/CD impossible sans refonte**.
+
+#### 9.4.3 Surcharge du Dockerfile backend
+
+```dockerfile
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev
+```
+
+Ces dépendances sont nécessaires pour compiler `psycopg2` (la version C), mais le projet utilise `psycopg2-binary` qui est pré-compilé. Les packages `gcc` et `libpq-dev` sont donc **totalement inutiles**, ajoutant ~200MB à l'image et ralentissant le build.
+
+**Soit :** utiliser `psycopg2` (pas -binary) et garder les build deps
+**Soit :** utiliser `psycopg2-binary` et supprimer les build deps
+
+L'état actuel est incohérent.
+
+#### 9.4.4 Pas de console email backend en développement
+
+L'email utilise Gmail SMTP même en développement. Cela signifie que :
+- Un développeur doit configurer un compte Gmail avec mot de passe d'application
+- Les emails de test sont réellement envoyés
+- Si la config email est absente, toute commande de test plante (fail_silently=False)
+
+**Solution standard Django :** `EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'` en DEBUG=True.
+
+---
+
+### 9.5 Conformité REST
+
+L'API est globalement RESTful, avec quelques anomalies :
+
+| Critère REST | Statut | Note |
+|-------------|--------|------|
+| Noms de ressources au pluriel (`/products/`, `/orders/`) | ✅ | Correct |
+| Utilisation des méthodes HTTP (`GET, POST, PATCH, DELETE`) | ✅ | Correct |
+| Codes HTTP (`201, 204, 400, 401, 404`) | ✅ | Correct |
+| Authentification via header `Authorization: Bearer` | ✅ | Correct |
+| Versioning API (`/api/v1/`) | ✅ | Correct |
+| Pagination | ❌ | Absente |
+| Filtrage, tri, recherche | ❌ | Absent |
+| Format d'erreur standardisé | ❌ | Messages bruts de DRF |
+| Hydratation des relations (nested resources) | ⚠️ | Cart a nested items, Orders non |
+| HATEOAS | ❌ | Pas de liens de navigation |
+
+**Jugement :** L'API respecte les bases de REST mais manque des fonctionnalités de maturité (niveau 2 du modèle Richardson, pas niveau 3).
+
+---
+
+### 9.6 Conformité Django
+
+| Bonne pratique Django | Statut | Note |
+|----------------------|--------|------|
+| Apps Django nommées correctement | ✅ | `users`, `products`, `carts`, `orders` |
+| Custom User Model dès le début | ✅ | Fait dans la 1ère migration |
+| `AUTH_USER_MODEL` défini | ✅ | Dans settings.py |
+| MIGRATION_HEADERS cohérents | ⚠️ | "Generated by Django 6.0" sur Django 5.2 |
+| Pas de Fat Models / Fat Views | ⚠️ | Vues épaisses, pas de service layer |
+| Tests présents | ❌ | 5 stubs vides |
+| Usage de `select_related` / `prefetch_related` | ❌ | Aucune optimisation de requêtes N+1 |
+| Middleware personnalisé | ❌ | Aucun |
+| Signals | ❌ | Aucun (email appelé directement) |
+| Django Admin personnalisé | ⚠️ | UserAdmin et OrderAdmin faits, produits/cart en registre simple |
+
+---
+
+### 9.7 Qualité du code : métriques subjectives
+
+| Critère | Évaluation | Justification |
+|---------|-----------|---------------|
+| **Lisibilité** | ⚠️ 6/10 | Vues denses sans commentaire, logique métier entrelacée |
+| **Testabilité** | ❌ 2/10 | 0 tests, logique pas extraite en services |
+| **Maintenabilité** | ⚠️ 5/10 | Duplication (intercepteurs), pas de service layer |
+| **Consistance** | ✅ 7/10 | Style uniforme, conventions DRF respectées |
+| **Documentation** | ❌ 3/10 | README très long mais pas de doc API (Swagger) |
+| **Sécurité** | ⚠️ 4/10 | 2 bloquants, 4 HIGH |
+| **Performance** | ⚠️ 5/10 | Pas de pagination, pas de N+1 prevention, pas de caching |
+| **Portabilité** | ⚠️ 5/10 | Docker + Docker Compose, mais fichiers gitignorés |
+
+**Score global :** ~4.6/10 — **Prototype fonctionnel, nécessite un travail significatif pour la production.**
+
+---
+
+### 9.8 Ce qu'un code reviewer dirait
+
+> "Bon travail sur la structure de base : les apps Django sont propres, le découpage frontend est logique, et le pipeline de refresh token est bien pensé. Cependant, vous avez 4 crashs 500 garantis, un bug d'intégrité de commande, zéro test, une config production qui bloque toute requête, et une infra Docker qui ne peut pas être buildée en CI. Ce projet a besoin d'une **semaine de nettoyage** avant d'être déployable."
+
+---
+
+### 9.9 Résumé du jugement
+
+| Aspect | Note | Verdict |
+|--------|------|---------|
+| Architecture Django | 6/10 | Propre mais pas assez découplée |
+| Architecture Frontend | 5/10 | Bon fond, bugs runtime, pas de gestion d'erreur |
+| Infrastructure | 4/10 | Docker bien fait mais gitignoré + gunicorn manquant |
+| CI/CD | 1/10 | Dossier vide, pas de pipeline |
+| Sécurité | 4/10 | 2 bloquants production |
+| Tests | 0/10 | Aucun |
+| Qualité code Backend | 5/10 | Fat views, pas de service layer, pas de transaction |
+| Qualité code Frontend | 5/10 | Intercepteurs dupliqués, skeleton, pas d'UX error |
+
+**Conclusion critique :** Le projet a les **fondations d'une bonne application e-commerce** mais la qualité d'exécution est inégale. Les points forts (modélisation Django, structure frontend, refresh token pattern) sont contrebalancés par des **bugs bloquants** (orphan order, gunicorn manquant, ALLOWED_HOSTS vide). La priorité absolue est de **mettre la configuration production en état de fonctionnement** avant toute autre amélioration.
+
+---
+
+## 10. Recommandations
+
+### 10.1 Bloquant pour la mise en production (ordre critique)
+
+1. **Ajouter `gunicorn` à `requirements.txt`** → sinon le container ne démarre pas
+2. **Rendre `ALLOWED_HOSTS` dynamique** : `os.getenv('ALLOWED_HOSTS', '').split(',')`
+3. **Rendre `CORS_ALLOWED_ORIGINS` dynamique** : pareil via variable d'env
+4. **Créer le workflow GitHub Actions** dans `.github/workflows/deploy.yml`
+5. **Supprimer les Dockerfiles du `.gitignore`** ou repenser la stratégie de déploiement
+
+### 10.2 Haute priorité
+
+6. **Corriger le bug Orphan Order** : déplacer la création de l'Order après validation stock dans une `transaction.atomic()`
+7. **Wrapper `int()` dans try/except** dans `carts/views.py`
+8. **Wrapper `Cart.objects.get()` dans try/except** dans `orders/views.py`
+9. **Ajouter un console.EmailBackend fallback** en dev pour éviter les crashs email
+10. **Corriger la typo `eject` → `eject`** dans `useAxios.js`
+11. **Singleton pattern pour useAxios** : attacher les intercepteurs une seule fois
+
+### 10.3 Moyenne priorité
+
+12. **Ajouter DRF pagination** pour le listing produits
+13. **Ajouter un healthcheck endpoint** (`/health/`) + Docker HEALTHCHECK
+14. **Remplacer `fields = "__all__"`** par des listes explicites
+15. **Compléter ProfileSettings** avec de vrais appels API
+16. **Afficher les erreurs Checkout** à l'utilisateur (react-toastify)
+17. **Ajouter un rate limiting** (django-ratelimit ou middleware DRF)
+18. **Personnaliser le titre** dans `index.html`
+19. **Nettoyer les dépendances npm** inutilisées
+
+### 10.4 Basse priorité
+
+20. **Migrer Python 3.10 → 3.12+** dans le Dockerfile
+21. **Extraire un service layer** pour séparer logique métier des vues
+22. **Cacher les propriétés Cart** (caching ou colonnes DB)
+23. **Ajouter Swagger/OpenAPI** (drf-spectacular ou drf-yasg)
+24. **Configurer pre-commit + ruff + black**
+25. **Ajouter `collectstatic` au build Docker** (au lieu de runtime)
+26. **Ajouter un user non-root** dans le Dockerfile backend
+
+### 10.5 Stratégie CI/CD recommandée
+
+```yaml
+# .github/workflows/deploy.yml — étapes recommandées
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+    steps:
+      - run: pip install -r requirements.txt
+      - run: python manage.py test
+      - run: npm ci && npm run lint && npm run build
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: appleboy/ssh-action@v1.0.3
+        with:
+          script: |
+            cd /opt/clickmart
+            git pull origin main
+            docker compose up --build -d
+```
+
+**Prérequis CI/CD :**
+- Secrets GitHub : `LINODE_HOST`, `LINODE_USER`, `LINODE_SSH_KEY`
+- Retirer Dockerfiles du `.gitignore`
+- Rendre les variables d'env Docker disponibles (secrets GitHub → fichiers .env)
+- Ajouter gunicorn + psycopg2-binary aux dépendances
+- Test stage avant déploiement
+
+---
+
+## 11. Annexe — Arbre des dépendances
+
+### Backend (Python)
+
+```
+Django 5.2+
+├── django-cors-headers 4.9.0
+├── djangorestframework 3.16.1
+│   └── djangorestframework_simplejwt 5.5.1
+│       └── PyJWT 2.10.1
+├── pillow 12.0.0
+├── psycopg2-binary 2.9.11
+├── python-decouple 3.8
+└── sqlparse 0.5.4
+```
+
+### Frontend (npm)
+
+```
+react 19.1.1
+├── react-dom 19.1.1
+├── react-router-dom 7.9.1
+├── axios 1.12.2
+├── bootstrap 5.3.8
+├── bootstrap-icons 1.13.1
+├── lucide-react 0.544.0
+├── (inutilisé) react-bootstrap 2.10.10
+├── (inutilisé) react-toastify 11.0.5
+└── devDependencies:
+    ├── vite 7.1.2 + @vitejs/plugin-react
+    ├── eslint 9.x + plugins
+    └── @types/react + @types/react-dom (inutiles sans TS)
+```
+
+---
+
+## Résumé exécutif
+
+| Catégorie | Statut |
+|-----------|--------|
+| **Fonctionnalités métier** | ✅ Core e-commerce complet (auth, produits, panier, commandes, email) |
+| **Tests** | ❌ **Zéro** — 5 stubs vides |
+| **Sécurité production** | ❌ **Bloquant** — ALLOWED_HOSTS vide, CORS localhost |
+| **Robustesse** | ⚠️ 4 crashs 500 identifiés, 1 bug d'intégrité (orphan order) |
+| **CI/CD** | ❌ **Non implémenté** — dossier vide |
+| **Infrastructure** | ⚠️ Dockerfiles gitignorés, gunicorn manquant |
+| **Qualité du code** | ⚠️ Sans tests, linting, ou formattage |
+| **Frontend** | ⚠️ 2 bugs runtime, 1 composant skeleton, dépendances inutilisées |
+| **Dette technique** | ⚠️ Significative mais rattrapable en 2-3 sprints |
+
+**Conclusion :** Le projet a une base fonctionnelle solide mais nécessite des corrections **bloquantes** avant toute mise en production. Les priorités sont : sécuriser la config production, corriger les crashs 500, implémenter les tests, et débloquer le pipeline CI/CD.
