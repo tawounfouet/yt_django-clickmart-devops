@@ -45,16 +45,16 @@
 
 ## 🟡 Priorité 3 — DevOps & résilience (1-2h)
 
-- [ ] **Backup automatique DB** (cron quotidien)
+- [x] **Backup automatique DB** (cron quotidien)
   - Script `infra/scripts/backup-db.sh` → `pg_dump | gzip`
   - Rotation 7 jours, cron `0 2 * * *`
 - [x] **Renouvellement SSL** — remplacé par le service Docker certbot
   - Boucle `while :; do certbot renew; sleep 12h; done` dans le container
-- [ ] **Healthchecks Docker** dans `docker-compose.yml`
+- [x] **Healthchecks Docker** dans `docker-compose.yml`
   - `db`: `pg_isready`, `backend`: `curl localhost:8000`, `nginx`: `curl localhost:80`
-- [ ] **`.dockerignore`** backend + frontend
+- [x] **`.dockerignore`** backend + frontend
   - Exclure `__pycache__`, `.venv`, `.env`, `db.sqlite3`, `media/`
-- [ ] **Logging structuré** (`backend/config/settings.py`)
+- [x] **Logging structuré** (`backend/config/settings.py`)
   - Configurer `LOGGING` : console, niveaux par module
 
 ---
@@ -122,11 +122,12 @@
 ```
 Priorité 1 (sécurité)  : ✅ FAIT 5/5
 Priorité 2 (fiabilité) : ✅ FAIT 6/6
-Priorité 3 (devops)    : ██░░░░░░░░ 1/5
+Priorité 3 (devops)    : ✅ FAIT 5/5
 Priorité 4 (CI/CD)     : ✅ FAIT 3/3
 Priorité 5 (frontend)  : ✅ FAIT 5/5
 Priorité 6 (nettoyage) : ✅ FAIT 5/5
 ─────────────────────────────────
-Total restant          : 4 tâches
-Total fait             : 35 tâches
+Total restant          : 0 tâches
+Total fait             : 39 tâches
+🎉 TOUT EST FAIT
 ```
