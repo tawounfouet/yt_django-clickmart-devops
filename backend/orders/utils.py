@@ -1,21 +1,28 @@
+import logging
 from django.core.mail import send_mail
 from django.conf import settings
 
+logger = logging.getLogger(__name__)
 
 
 def send_order_notification(order):
-    send_mail(
-        subject=f'Order #{order.id} is received',
-        message=f"""
-            Hi {order.user.first_name},
+    try:
+        send_mail(
+            subject=f'Order #{order.id} is received',
+            message=f"""
+                Hi {order.user.first_name},
 
-            Your order #{order.id} has been placed successfully.
+                Your order #{order.id} has been placed successfully.
 
-            Total: {order.grand_total}
+                Total: {order.grand_total}
 
-            Thank you for shopping with us.
-        """,
-        from_email=settings.EMAIL_HOST_USER,
-        recipient_list=[order.user.email],
-        fail_silently=False
-    )
+                Thank you for shopping with us.
+            """,
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[order.user.email],
+            fail_silently=True
+        )
+    except Exception as e:
+        logger.error(
+            f"Failed to send order notification for order #{order.id}: {e}"
+        )
