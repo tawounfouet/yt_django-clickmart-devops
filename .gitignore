@@ -177,4 +177,9 @@ backend/.env.docker
 backend/.env.production
 backend/.env.development
 backend/Dockerfile
-docker-compose.ymlbackend/static/
+docker-compose.yml
+backend/static/
+infra/certbot/conf/*
+!infra/certbot/conf/.gitkeep
+infra/certbot/www/*
+!infra/certbot/www/.gitkeep
