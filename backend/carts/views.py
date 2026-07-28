@@ -27,7 +27,7 @@ class AddToCartView(APIView):
         quantity = request.data.get('quantity') # 2
 
         if not product_id:
-            return Response({'error': 'product_id is required'})
+            return Response({'error': 'product_id is required'}, status=status.HTTP_400_BAD_REQUEST)
         
         # get the product
         product = get_object_or_404(Product, id=product_id, is_active=True)
@@ -38,10 +38,11 @@ class AddToCartView(APIView):
         # get or create cartitem
         item, created = CartItem.objects.get_or_create(cart=cart, product=product)
 
-        if not created: # cart item already exist
-            # item.quantity = item.quantity + quantity
+        if created:
+            item.quantity = int(quantity)
+        else:
             item.quantity += int(quantity)
-            item.save()
+        item.save()
         
         serializer = CartSerializer(cart)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -53,7 +54,7 @@ class ManageCartItemView(APIView):
     def patch(self, request, item_id):
         # validate
         if 'change' not in request.data:
-            return Response({"error": "Provide 'change' field"})
+            return Response({"error": "Provide 'change' field"}, status=status.HTTP_400_BAD_REQUEST)
         
         change = int(request.data.get('change')) # +1 or -1
 
@@ -63,7 +64,7 @@ class ManageCartItemView(APIView):
         # for adding, check the stock
         if change > 0: # change = 1
             if item.quantity + change > product.stock:
-                return Response({'error': 'Not enough stock'})
+                return Response({'error': 'Not enough stock'}, status=status.HTTP_400_BAD_REQUEST)
             
         new_qty = item.quantity + change # change can be +1 or -1
 

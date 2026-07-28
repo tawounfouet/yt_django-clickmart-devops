@@ -19,7 +19,7 @@ class PlaceOrderView(APIView):
         cart = Cart.objects.get(user=request.user)
         shipping_address = request.data.get("shippingAddress")
         if not cart or cart.items.count() == 0:
-            return Response({'error': 'Cart is empty'})
+            return Response({'error': 'Cart is empty'}, status=status.HTTP_400_BAD_REQUEST)
 
         # create the order
         order = Order.objects.create(
