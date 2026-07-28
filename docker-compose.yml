@@ -5,13 +5,19 @@ services:
       - ./backend/.env.production
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build: ./backend
     env_file:
       - ./backend/.env.docker
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     volumes:
       - ./backend/static:/app/static
       - ./backend/media:/app/media
@@ -38,6 +44,11 @@ services:
       - ./infra/certbot/www:/var/www/certbot
       - ./infra/certbot/conf:/etc/letsencrypt
       - ./backend/media:/media
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:80 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     depends_on:
       - frontend
       - backend
