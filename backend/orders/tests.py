@@ -79,7 +79,7 @@ class PlaceOrderViewTests(APITestCase):
         }
         self.client.force_authenticate(user=self.user)
 
-    @patch("orders.views.send_order_notification")
+    @patch("orders.api.views.send_order_notification")
     def test_place_order_success(self, mock_notify):
         response = self.client.post(
             self.url, self.shipping, format="json"
@@ -92,13 +92,13 @@ class PlaceOrderViewTests(APITestCase):
         self.assertEqual(order.address, "456 Oak Ave")
         mock_notify.assert_called_once()
 
-    @patch("orders.views.send_order_notification")
+    @patch("orders.api.views.send_order_notification")
     def test_place_order_deducts_stock(self, mock_notify):
         self.client.post(self.url, self.shipping, format="json")
         self.product.refresh_from_db()
         self.assertEqual(self.product.stock, 3)
 
-    @patch("orders.views.send_order_notification")
+    @patch("orders.api.views.send_order_notification")
     def test_place_order_clears_cart(self, mock_notify):
         self.client.post(self.url, self.shipping, format="json")
         self.cart.refresh_from_db()
@@ -118,7 +118,7 @@ class PlaceOrderViewTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    @patch("orders.views.send_order_notification")
+    @patch("orders.api.views.send_order_notification")
     def test_place_order_insufficient_stock(self, mock_notify):
         self.product.stock = 1
         self.product.save()
