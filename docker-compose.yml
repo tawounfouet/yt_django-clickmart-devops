@@ -44,6 +44,7 @@ services:
       - ./infra/certbot/www:/var/www/certbot
       - ./infra/certbot/conf:/etc/letsencrypt
       - ./backend/media:/media
+      - ./backend/static:/static:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:80 || exit 1"]
       interval: 30s
