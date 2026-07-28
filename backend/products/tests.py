@@ -110,7 +110,7 @@ class ProductDetailTests(APITestCase):
         response = self.client.get(self.url)
         expected_keys = {
             "id", "name", "description", "image", "price",
-            "stock", "tax_percent", "is_active", "created_at",
+            "stock", "tax_percent", "created_at",
             "updated_at",
         }
         self.assertEqual(set(response.data.keys()), expected_keys)
