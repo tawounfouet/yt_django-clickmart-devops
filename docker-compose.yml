@@ -42,5 +42,17 @@ services:
       - frontend
       - backend
 
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+      - ./scripts/certbot-deploy-hook.sh:/usr/local/bin/deploy-hook.sh:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet --deploy-hook /usr/local/bin/deploy-hook.sh; sleep 12h; done'"
+    restart: unless-stopped
+    depends_on:
+      - nginx
+
 volumes:
   postgres_data:
