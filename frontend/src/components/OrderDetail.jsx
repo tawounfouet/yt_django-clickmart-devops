@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 const OrderDetail = ({ orderId, isOpen, onClose }) => {
 
     const [order, setOrder] = useState(null)
-    const [loading, setLoading] = useState(false)
+    const [, setLoading] = useState(false)
     
      const { api } = useAxios();
      const { auth } = useAuth();

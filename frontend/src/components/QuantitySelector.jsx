@@ -1,7 +1,6 @@
 const QuantitySelector = ({
   quantity,
   onQuantityChange,
-  min = 0, 
   max = 99,
 }) => {
   const handleDecrement = () => {

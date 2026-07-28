@@ -34,6 +34,7 @@ export const Home = () => {
 
   useEffect(() => {
     fetchCartData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
     <>

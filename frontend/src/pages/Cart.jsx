@@ -31,6 +31,7 @@ const Cart = () => {
 
   useEffect(() => {
     fetchCartData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleQuantityChange = async (itemId, currentQty, newQty) => {

@@ -43,7 +43,7 @@ const ProductDetail = () => {
     if (id) {
       fetchProduct();
     }
-  }, [id, api]);
+  }, [id]);
 
   const fetchCartData = async () => {
     dispatch({ type: "START_LOADING" });
@@ -62,13 +62,14 @@ const ProductDetail = () => {
           itemCount: items?.length,
         },
       });
-    } catch (err) {
+    } catch {
       dispatch({ type: "STOP_LOADING" });
     }
   };
 
   useEffect(() => {
     fetchCartData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleUpdateQuantity = async (itemId, change) => {
@@ -99,8 +100,6 @@ const ProductDetail = () => {
       });
     } catch (err) {
       console.error("Failed to add to cart:", err);
-      const errorMessage =
-        err.response?.data?.error || "Failed to add to cart.";
     }
   };
 
