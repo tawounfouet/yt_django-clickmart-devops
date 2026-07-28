@@ -17,7 +17,7 @@
 2026-04-16    v0.6.0 — Tests backend (67+ tests), media fix
 2026-07-02    🌟 SESSION 1 — Analyse codebase + 5 docs créés + 4 commits
 2026-07-22    🌟 SESSION 2 — Analyse critique + recommandations + plan (3 docs)
-2026-07-28    🌟 SESSION 3 — Déploiement serveur Linode (en cours)
+2026-07-28    🌟 SESSION 3 — Déploiement Linode + CI/CD GitHub Actions
 ```
 
 ---
@@ -43,20 +43,21 @@
 | docker-compose.yml | ✅ Présent | 4 services : db, backend, frontend, nginx (gitignoré) |
 | nginx/default.conf | ✅ Présent | Reverse proxy HTTP/HTTPS (git tracké) |
 | certbot/ | ✅ Dossiers créés | conf/ + www/ (vides, .gitkeep) |
-| .github/workflows/automate.yml | ✅ Présent | SSH → git pull → docker compose up (minimaliste) |
+| .github/workflows/automate.yml | ✅ Pipeline complet | 3 jobs : tests backend (67) + tests frontend + déploiement SSH |
 
 ### 2.3 Serveur Linode (172.239.20.14)
 
 | Composant | Statut | Version |
 |---|---|---|
 | SSH | ✅ Configuré | root@172.239.20.14 |
-| Ubuntu | ✅ 24.04.4 | Kernel 6.8.0-111 (reboot nécessaire → 6.8.0-136) |
+| Ubuntu | ✅ 24.04.4 | Kernel 6.8.0-111 |
 | Docker | ✅ Installé | 29.6.2 |
 | Docker Compose | ✅ Installé | v5.3.1 |
 | Git | ✅ Installé | 2.43.0 |
-| `/opt/clickmart` | ❌ Non créé | À faire |
-| UFW Firewall | ❌ Inactif | À configurer |
-| Ports | ❌ Non configurés | 22 ouvert par défaut (Linode), 80/443 à ouvrir |
+| `/opt/clickmart` | ✅ Clone + SCP | Projet complet + fichiers gitignorés |
+| UFW Firewall | ⚠️ Inactif | Docker gère iptables |
+| Ports firewall cloud | ✅ Configurés | 22, 80, 443 (8000/5173 supprimés) |
+| App accessible | ✅ | http://172.239.20.14 |
 
 ### 2.4 Documentation existante
 
@@ -68,9 +69,12 @@
 | `ARCHITECTURE.md` | 13 Ko | 2026-07-02 | ✅ | Diagrammes déploiement, flux, composants |
 | `CHANGELOG.md` | 5 Ko | 2026-07-02 | ✅ | Historique versions 0.1.0 → 0.6.0 |
 | `INDEX.md` | 6 Ko | 2026-07-02 | ✅ | Plan de navigation du dépôt |
-| `ANALYSE_CRITIQUE.md` | 20 Ko | 2026-07-22 | ❌ | Diagnostic 25 problèmes, score 5.4/10 |
-| `RECOMMANDATIONS.md` | 30 Ko | 2026-07-22 | ❌ | Plan d'action 6 phases avec code |
-| `PLAN_IMPLEMMENTATION.md` | 45 Ko | 2026-07-22 | ❌ | Roadmap 15 jours, dépendances |
+| `ANALYSE_CRITIQUE.md` | 20 Ko | 2026-07-22 | ✅ | Diagnostic 25 problèmes, score 5.4/10 |
+| `RECOMMANDATIONS.md` | 30 Ko | 2026-07-22 | ✅ | Plan d'action 6 phases avec code |
+| `PLAN_IMPLEMMENTATION.md` | 45 Ko | 2026-07-22 | ✅ | Roadmap 15 jours, dépendances |
+| `ETAT_DES_LIEUX.md` | 10 Ko | 2026-07-28 | ✅ | Ce fichier |
+| `docs/deploy/DEPLOIEMENT_LINODE.md` | 26 Ko | 2026-07-28 | ✅ | Guide déploiement avec diagrammes ASCII |
+| `docs/deploy/GUIDE_CICD.md` | 24 Ko | 2026-07-28 | ❌ | Guide CI/CD pas-à-pas |
 
 ### 2.5 Sessions archivées
 
@@ -84,16 +88,21 @@
 
 ## 3. Ce qui n'est pas fait
 
-### 3.1 Bloquant pour le déploiement
+### 3.1 Fait aujourd'hui ✅
 
-| Problème | Impact | Priorité |
-|---|---|---|
-| `ALLOWED_HOSTS = []` en dur dans `settings.py:30` | Django refuse toutes les requêtes si DEBUG=False | 🔴 |
-| `CORS_ALLOWED_ORIGINS` limité à localhost:5173 | Frontend distant bloqué | 🔴 |
-| Dockerfiles + docker-compose.yml sont **gitignorés** | Le serveur ne les reçoit pas au `git clone` | 🔴 |
-| Pas de firewall (UFW inactif) | Ports non filtrés | 🔴 |
-| Pas de `.env.docker` ni `.env.production` sur le serveur | Les conteneurs ne démarrent pas | 🔴 |
-| `SECRET_KEY` vide si `.env` absent | Crash au démarrage de Django | 🔴 |
+| Problème | Statut |
+|---|---|
+| `ALLOWED_HOSTS = []` en dur → dynamique via `config()` | ✅ Résolu |
+| `CORS_ALLOWED_ORIGINS` limité à localhost → dynamique | ✅ Résolu |
+| Dockerfiles + docker-compose gitignorés → SCP sur serveur | ✅ Résolu |
+| Firewall cloud : ports 80/443 ouverts, 8000/5173 supprimés | ✅ Résolu |
+| `.env.docker` + `.env.production` créés sur le serveur | ✅ Résolu |
+| Déploiement : `docker compose up --build -d` → 4 containers | ✅ Résolu |
+| CI/CD : pipeline vide → 3 jobs (tests backend + frontend + deploy) | ✅ Résolu |
+| Tests : stubs vides dans git → 67 tests commités | ✅ Résolu |
+| Docs non commités → tous commités | ✅ Résolu |
+
+### 3.2 Reste à faire
 
 ### 3.2 Sécurité (CRITICAL — PLAN_IMPLEMMENTATION.md Phase 1)
 
@@ -245,15 +254,15 @@ Suivre `PLAN_IMPLEMMENTATION.md` :
 
 | Domaine | Fait | Restant | Bloquant |
 |---|---|---|---|
-| **Code backend** | ✅ | 🔶 5 bugs critiques | OUI (ALLOWED_HOSTS, transactions) |
+| **Code backend** | ✅ | 🔶 5 bugs critiques | OUI (transactions) |
 | **Code frontend** | ✅ | 🔶 ErrorBoundary, lazy loading | NON |
-| **Tests** | ✅ 67+ | 🔶 CI, couverture | NON |
-| **Docker** | ✅ Fichiers créés | 🔴 Gitignorés | OUI (serveur ne les reçoit pas) |
-| **Serveur** | ✅ Docker/Git installés | 🔴 .env, firewall, /opt/clickmart | OUI |
-| **CI/CD** | 🔶 Minimal | 🔴 Pas de tests | NON |
-| **Sécurité** | 🔶 Basique | 🔴 6 failles critiques | OUI |
-| **Documentation** | ✅ 6 fichiers | 🔶 4 fichiers non commités | NON |
-| **SSL/Domaine** | 🔶 Certbot dossier créé | ❌ Pas de domaine, pas de certif | NON |
+| **Tests** | ✅ 67+ commités | 🔶 CI frontend (vitest config) | NON |
+| **Docker** | ✅ Déployé | 🔴 Gitignorés (SCP manuel) | NON |
+| **Serveur** | ✅ App en ligne | 🔴 User SSH dédié | NON |
+| **CI/CD** | ✅ Pipeline complet | 🔶 Frontend test non bloquant | NON |
+| **Sécurité** | 🔶 ALLOWED_HOSTS OK | 🔴 Rate limiting, headers | OUI |
+| **Documentation** | ✅ 8 fichiers | 🔶 GUIDE_CICD à committer | NON |
+| **SSL/Domaine** | 🔶 Certbot dossier prêt | ❌ Pas de domaine | NON |
 
 ---
 

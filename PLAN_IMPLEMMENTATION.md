@@ -3,6 +3,7 @@
 > Basé sur `ANALYSE_CRITIQUE.md` et `RECOMMANDATIONS.md`
 > Durée estimée : **3 semaines** (15 jours ouvrés)
 > Approche : incrémentele, chaque livrable est testable et déployable
+> **Progression : ~25% (Phase CI/CD ✓, reste : sécurité, fiabilité, frontend, polish)**
 
 ---
 
@@ -25,17 +26,18 @@ Semaine 1                    Semaine 2                    Semaine 3
 J1   J2   J3   J4   J5      J6   J7   J8   J9   J10     J11  J12  J13  J14  J15
 ├────┼────┼────┼────┤         ├────┼────┼────┼────┤         ├────┼────┼────┼────┤
 Sécurité    Fiabilité        CI/CD       DevOps           Frontend     Polish
-■■■■■■■■■■  ■■■■■■■■■■       ■■■■■■■■■■   ■■■■■■           ■■■■■■■■■■   ■■■■■■■■■■
+■■■■■■■■■■  ■■■■■■■■■■       ✅ FAIT      ■■■■■■           ■■■■■■■■■■   ■■■■■■■■■■
+                                 28/07
 ```
 
-| Phase | Jours | Livrable | Peut paralléliser |
+| Phase | Jours | Livrable | Statut |
 |---|---|---|---|
-| S1-J1-2 | Sécurité backend | Rate limiting, headers SSL, ALLOWED_HOSTS | Non |
-| S1-J3-5 | Fiabilité backend | Transactions, validation, nettoyage | Non |
-| S2-J6-8 | CI/CD | Pipeline GitHub Actions complet | Oui avec J9-10 |
-| S2-J9-10 | DevOps | Healthchecks, backups, logging | Oui avec J6-8 |
-| S3-J11-13 | Frontend | ErrorBoundary, lazy loading, pagination | Non |
-| S3-J14-15 | Polish | Pre-commit, docs, .dockerignore, nettoyage | Non |
+| S1-J1-2 | Sécurité backend | Rate limiting, headers SSL, ALLOWED_HOSTS | ⬜ À faire |
+| S1-J3-5 | Fiabilité backend | Transactions, validation, nettoyage | ⬜ À faire |
+| S2-J6-8 | CI/CD | Pipeline GitHub Actions complet | ✅ Fait (28/07) |
+| S2-J9-10 | DevOps | Healthchecks, backups, logging | ⬜ À faire |
+| S3-J11-13 | Frontend | ErrorBoundary, lazy loading, pagination | ⬜ À faire |
+| S3-J14-15 | Polish | Pre-commit, docs, .dockerignore, nettoyage | ⬜ À faire |
 
 ---
 
