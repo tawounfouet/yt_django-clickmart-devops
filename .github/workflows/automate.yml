@@ -91,7 +91,8 @@ jobs:
             set -e
             cd /opt/clickmart
             echo "=== Pull latest code ==="
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             echo "=== Rebuild and restart ==="
             docker compose up --build -d
             echo "=== Wait for services ==="
