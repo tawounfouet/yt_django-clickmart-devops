@@ -50,26 +50,31 @@ class PlaceOrderView(APIView):
                 zip_code=shipping_address.get("zipCode"),
             )
 
-            for item in cart.items.select_related('product').all():
-                product = Product.objects.select_for_update().get(
-                    pk=item.product.pk
-                )
-
-                if product.stock < item.quantity:
-                    raise ValueError(
-                        f'Stock insuffisant pour {product.name}. '
-                        f'Disponible : {product.stock}'
+            try:
+                for item in cart.items.select_related('product').all():
+                    product = Product.objects.select_for_update().get(
+                        pk=item.product.pk
                     )
 
-                product.stock -= item.quantity
-                product.save()
+                    if product.stock < item.quantity:
+                        raise ValueError(
+                            f'Only {product.stock} left for {product.name}'
+                        )
 
-                OrderItem.objects.create(
-                    order=order,
-                    product=product,
-                    quantity=item.quantity,
-                    price=product.price,
-                    total_price=item.total_price
+                    product.stock -= item.quantity
+                    product.save()
+
+                    OrderItem.objects.create(
+                        order=order,
+                        product=product,
+                        quantity=item.quantity,
+                        price=product.price,
+                        total_price=item.total_price
+                    )
+            except ValueError as e:
+                return Response(
+                    {'details': str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
                 )
 
             cart.items.all().delete()
