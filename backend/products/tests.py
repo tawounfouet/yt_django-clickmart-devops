@@ -71,14 +71,15 @@ class ProductListTests(APITestCase):
     def test_list_returns_only_active(self):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["name"], "Active")
+        results = response.data['results']
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["name"], "Active")
 
     def test_list_returns_empty_when_no_active(self):
         self.p1.is_active = False
         self.p1.save()
         response = self.client.get(self.url)
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(len(response.data['results']), 0)
 
 
 class ProductDetailTests(APITestCase):
