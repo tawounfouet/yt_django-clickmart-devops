@@ -61,12 +61,12 @@
 
 ## 🟢 Priorité 4 — CI/CD améliorations (1h)
 
-- [ ] **Corriger les tests frontend** (vitest + jsdom)
-  - Configurer `vitest.config.js` avec `environment: 'jsdom'`
+- [x] **Corriger les tests frontend** (vitest + jsdom)
+  - Configurer `vite.config.js` avec `environment: 'jsdom'`
   - Retirer `|| true` une fois les tests fonctionnels
-- [ ] **Ajouter badge CI** dans le README
+- [x] **Ajouter badge CI** dans le README
   - `[![CI/CD](https://github.com/tawounfouet/.../actions/workflows/automate.yml/badge.svg)](...)`
-- [ ] **Ajouter `ruff` + `pre-commit`** en local
+- [x] **Ajouter `ruff` + `pre-commit`** en local
   - `.pre-commit-config.yaml` → ruff, trailing-whitespace, check-yaml
   - `pip install pre-commit && pre-commit install`
 
@@ -121,10 +121,10 @@
 Priorité 1 (sécurité)  : ✅ FAIT 5/5
 Priorité 2 (fiabilité) : ✅ FAIT 6/6
 Priorité 3 (devops)    : ░░░░░░░░░░ 0/5
-Priorité 4 (CI/CD)     : ░░░░░░░░░░ 0/3
+Priorité 4 (CI/CD)     : ✅ FAIT 3/3
 Priorité 5 (frontend)  : ░░░░░░░░░░ 0/5
 Priorité 6 (nettoyage) : ░░░░░░░░░░ 0/5
 ─────────────────────────────────
-Total restant          : 18 tâches
-Total fait             : 21 tâches
+Total restant          : 15 tâches
+Total fait             : 24 tâches
 ```
