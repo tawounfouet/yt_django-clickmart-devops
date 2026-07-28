@@ -82,7 +82,7 @@ server {
     }
 
     location /static/ {
-        alias /static/;
+        proxy_pass http://backend:8000;
     }
 
     location /media/ {
