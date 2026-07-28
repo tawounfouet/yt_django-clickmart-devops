@@ -2,6 +2,8 @@
 # 🚀 Django Production Deployment (Step-by-Step)
 ### Docker + PostgreSQL + GitHub Actions (CI/CD) + Linode + Nginx + Gunicorn + Custom Domain + SSL
 
+[![CI/CD Pipeline](https://github.com/tawounfouet/yt_django-clickmart-devops/actions/workflows/automate.yml/badge.svg)](https://github.com/tawounfouet/yt_django-clickmart-devops/actions)
+
 This repository demonstrates how to deploy a **Django application** from local development to **production** using:
 - Django  
 - Docker & Docker Compose  

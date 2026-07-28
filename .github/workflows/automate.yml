@@ -64,7 +64,7 @@ jobs:
         working-directory: frontend
 
       - name: Test
-        run: npm test || true
+        run: npx vitest run --config vite.config.js
         working-directory: frontend
 
       - name: Build
