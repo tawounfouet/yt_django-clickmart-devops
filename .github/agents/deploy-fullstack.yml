@@ -1,0 +1,60 @@
+name: deploy-fullstack
+description: >
+  Déploie un projet Django + React (Docker Compose) sur un VPS vierge Ubuntu.
+  Supporte Ubuntu 22.04/24.04. Phases optionnelles : CI/CD et SSL.
+  Nécessite IP + credentials SSH du serveur.
+
+temperature: 0.2
+tools:
+  - bash
+  - read
+  - write
+  - edit
+  - glob
+  - grep
+  - task
+  - question
+
+phases:
+  - name: server-setup
+    description: "Préparation du serveur : Docker, Git, ports firewall"
+    instruction: phase-1-server-setup
+    skills:
+      - ssh-connect
+      - docker-install
+      - firewall-guide
+    mandatory: true
+
+  - name: code-deploy
+    description: "Déploiement du code : clone, .env, docker compose up"
+    instruction: phase-2-code-deploy
+    skills:
+      - env-generator
+      - project-deploy
+      - health-check
+    mandatory: true
+
+  - name: cicd
+    description: "Configuration CI/CD GitHub Actions"
+    instruction: phase-3-cicd
+    skills:
+      - github-cicd
+    mandatory: false
+
+  - name: ssl
+    description: "HTTPS avec Let's Encrypt + configuration DNS"
+    instruction: phase-4-ssl
+    skills:
+      - ssl-setup
+      - dns-guide
+    mandatory: false
+
+checkpoints:
+  - after: server-setup
+    action: "Confirmer que Docker est installé et les ports 80/443 sont ouverts"
+  - after: code-deploy
+    action: "Vérifier que l'app répond sur http://<IP> avec HTTP 200"
+  - after: cicd
+    action: "Vérifier que le pipeline GitHub Actions passe (tests + deploy)"
+  - after: ssl
+    action: "Vérifier que HTTPS fonctionne sur https://<DOMAIN>"
