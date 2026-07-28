@@ -74,16 +74,16 @@
 
 ## 🔵 Priorité 5 — Frontend (2-3h)
 
-- [ ] **ErrorBoundary** global (`src/components/ErrorBoundary.jsx`)
+- [x] **ErrorBoundary** global (`src/components/ErrorBoundary.jsx`)
   - Wrapper dans `main.jsx` autour de `<App />`
-- [ ] **Axios interceptor** amélioré (`src/api/index.js`)
+- [x] **Axios interceptor** amélioré (`src/api/index.js`)
   - Redirection auto vers `/login` sur 401
   - Gestion des erreurs 500 avec toast/notification
-- [ ] **Lazy loading** des routes (`App.jsx`)
+- [x] **Lazy loading** des routes (`App.jsx`)
   - `React.lazy()` + `<Suspense>` pour chaque page
-- [ ] **Pagination backend** (`products/views.py`)
+- [x] **Pagination backend** (`products/views.py`)
   - `PageNumberPagination`, `page_size=20`
-- [ ] **Corriger les warnings ESLint** (12 warnings)
+- [x] **Corriger les warnings ESLint** (12 warnings)
   - Variables non utilisées dans 6 fichiers
 
 ---
@@ -122,9 +122,9 @@ Priorité 1 (sécurité)  : ✅ FAIT 5/5
 Priorité 2 (fiabilité) : ✅ FAIT 6/6
 Priorité 3 (devops)    : ░░░░░░░░░░ 0/5
 Priorité 4 (CI/CD)     : ✅ FAIT 3/3
-Priorité 5 (frontend)  : ░░░░░░░░░░ 0/5
+Priorité 5 (frontend)  : ✅ FAIT 5/5
 Priorité 6 (nettoyage) : ░░░░░░░░░░ 0/5
 ─────────────────────────────────
-Total restant          : 15 tâches
-Total fait             : 24 tâches
+Total restant          : 10 tâches
+Total fait             : 29 tâches
 ```
