@@ -17,11 +17,13 @@ tools:
 
 phases:
   - name: server-setup
-    description: "Préparation du serveur : Docker, Git, ports firewall"
+    description: "Préparation du serveur : Docker, Git, ports firewall selon le fournisseur"
     instruction: phase-1-server-setup
     skills:
       - ssh-connect
+      - provider-detect
       - docker-install
+      - firewall-config
       - firewall-guide
     mandatory: true
 
