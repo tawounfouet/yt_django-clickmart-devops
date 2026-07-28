@@ -13,13 +13,13 @@
 - [x] **Rate limiting** sur `/api/v1/token/` et `/api/v1/register/`
   - `backend/config/settings.py` → ajouter `DEFAULT_THROTTLE_CLASSES` + `DEFAULT_THROTTLE_RATES`
   - `auth: 5/minute`, `anon: 20/minute`
-- [ ] **Headers de sécurité Django**
+- [x] **Headers de sécurité Django**
   - `SECURE_HSTS_SECONDS=31536000`, `SECURE_HSTS_INCLUDE_SUBDOMAINS=True`
   - `SESSION_COOKIE_SECURE=True`, `CSRF_COOKIE_SECURE=True`
   - `SECURE_CONTENT_TYPE_NOSNIFF=True`
-- [ ] **Validation mot de passe** dans `UserRegisterSerializer`
+- [x] **Validation mot de passe** dans `UserRegisterSerializer`
   - Ajouter `validate_password()` + `from django.contrib.auth.password_validation import validate_password`
-- [ ] **Exclure `is_active`** du `ProductSerializer`
+- [x] **Exclure `is_active`** du `ProductSerializer`
   - Remplacer `fields = "__all__"` par une liste explicite
 
 ---
@@ -118,13 +118,13 @@
 ## Résumé
 
 ```
-Priorité 1 (sécurité)  : ██░░░░░░░░ 1/5
+Priorité 1 (sécurité)  : ✅ FAIT 5/5
 Priorité 2 (fiabilité) : ░░░░░░░░░░ 0/6
 Priorité 3 (devops)    : ░░░░░░░░░░ 0/5
 Priorité 4 (CI/CD)     : ░░░░░░░░░░ 0/3
 Priorité 5 (frontend)  : ░░░░░░░░░░ 0/5
 Priorité 6 (nettoyage) : ░░░░░░░░░░ 0/5
 ─────────────────────────────────
-Total restant          : 28 tâches
-Total fait             : 11 tâches
+Total restant          : 24 tâches
+Total fait             : 15 tâches
 ```
