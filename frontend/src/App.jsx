@@ -3,7 +3,7 @@ import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import Header from "./components/Navbar";
 import Footer from "./components/Footer";
 
-const Home = lazy(() => import("./pages/Home"));
+const Home = lazy(() => import("./pages/Home").then(m => ({ default: m.Home })));
 const Cart = lazy(() => import("./pages/Cart"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const Login = lazy(() => import("./pages/Login"));
