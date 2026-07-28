@@ -46,10 +46,10 @@
 ## 🟡 Priorité 3 — DevOps & résilience (1-2h)
 
 - [ ] **Backup automatique DB** (cron quotidien)
-  - Script `scripts/backup-db.sh` → `pg_dump | gzip`
+  - Script `infra/scripts/backup-db.sh` → `pg_dump | gzip`
   - Rotation 7 jours, cron `0 2 * * *`
-- [ ] **Cron renouvellement SSL** (quand certificat installé)
-  - `0 3,15 * * * certbot renew --quiet && docker compose restart nginx`
+- [x] **Renouvellement SSL** — remplacé par le service Docker certbot
+  - Boucle `while :; do certbot renew; sleep 12h; done` dans le container
 - [ ] **Healthchecks Docker** dans `docker-compose.yml`
   - `db`: `pg_isready`, `backend`: `curl localhost:8000`, `nginx`: `curl localhost:80`
 - [ ] **`.dockerignore`** backend + frontend
@@ -122,11 +122,11 @@
 ```
 Priorité 1 (sécurité)  : ✅ FAIT 5/5
 Priorité 2 (fiabilité) : ✅ FAIT 6/6
-Priorité 3 (devops)    : ░░░░░░░░░░ 0/5
+Priorité 3 (devops)    : ██░░░░░░░░ 1/5
 Priorité 4 (CI/CD)     : ✅ FAIT 3/3
 Priorité 5 (frontend)  : ✅ FAIT 5/5
 Priorité 6 (nettoyage) : ✅ FAIT 5/5
 ─────────────────────────────────
-Total restant          : 5 tâches
-Total fait             : 34 tâches
+Total restant          : 4 tâches
+Total fait             : 35 tâches
 ```

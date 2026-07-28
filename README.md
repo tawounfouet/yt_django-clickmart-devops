@@ -831,5 +831,5 @@ git push origin main
 
 - [Guide de déploiement Linode](docs/deploy/DEPLOIEMENT_LINODE.md) — Architecture, firewall, procédure pas-à-pas
 - [Guide CI/CD GitHub Actions](docs/deploy/GUIDE_CICD.md) — Pipeline complet (tests → build → deploy)
-- [TODO.md](docs/analyse/TODO.md) — Liste des tâches restantes par priorité
+- [TODO.md](TODO.md) — Liste des tâches restantes par priorité
 - [Documentation API](http://172.239.20.14/api/docs/) — Swagger UI (DRF Spectacular)
