@@ -26,19 +26,19 @@
 
 ## 🟠 Priorité 2 — Fiabilité backend (2-3h)
 
-- [ ] **`transaction.atomic()`** dans `PlaceOrderView` (`orders/views.py`)
+- [x] **`transaction.atomic()`** dans `PlaceOrderView` (`orders/views.py`)
   - Stock déduit + OrderItems créés dans la même transaction
   - `select_for_update()` sur le produit pour éviter les race conditions
-- [ ] **Validation des entrées** dans `carts/views.py`
+- [x] **Validation des entrées** dans `carts/views.py`
   - `AddToCartView` : valider `product_id` (int), `quantity` (int > 0), vérifier stock
   - `ManageCartItemView` : valider `change` (int)
-- [ ] **Gestion panier inexistant** dans `PlaceOrderView`
+- [x] **Gestion panier inexistant** dans `PlaceOrderView`
   - Remplacer `Cart.objects.get()` par `get_object_or_create` ou try/except
-- [ ] **Email non bloquant** (`orders/utils.py`)
+- [x] **Email non bloquant** (`orders/utils.py`)
   - `fail_silently=True` + logging au lieu de crasher toute la commande
-- [ ] **Nettoyer les imports inutilisés**
+- [x] **Nettoyer les imports inutilisés**
   - `products/views.py`, `orders/views.py`, `carts/views.py` → supprimer `render` non utilisé
-- [ ] **Contrainte d'unicité** sur `CartItem` (`carts/models.py`)
+- [x] **Contrainte d'unicité** sur `CartItem` (`carts/models.py`)
   - `class Meta: unique_together = ('cart', 'product')` + migration
 
 ---
@@ -119,12 +119,12 @@
 
 ```
 Priorité 1 (sécurité)  : ✅ FAIT 5/5
-Priorité 2 (fiabilité) : ░░░░░░░░░░ 0/6
+Priorité 2 (fiabilité) : ✅ FAIT 6/6
 Priorité 3 (devops)    : ░░░░░░░░░░ 0/5
 Priorité 4 (CI/CD)     : ░░░░░░░░░░ 0/3
 Priorité 5 (frontend)  : ░░░░░░░░░░ 0/5
 Priorité 6 (nettoyage) : ░░░░░░░░░░ 0/5
 ─────────────────────────────────
-Total restant          : 24 tâches
-Total fait             : 15 tâches
+Total restant          : 18 tâches
+Total fait             : 21 tâches
 ```
