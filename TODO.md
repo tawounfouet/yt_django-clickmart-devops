@@ -7,7 +7,7 @@
 
 ## 🔴 Priorité 1 — Sécurité (2-3h)
 
-- [ ] **Créer un user SSH dédié** (`deploy`) — remplacer `root` dans le CI/CD
+- [x] **Créer un user SSH dédié** (`deploy`) — remplacer `root` dans le CI/CD
   - `adduser deploy && usermod -aG docker deploy`
   - Copier `authorized_keys`, mettre à jour `LINODE_USER` dans GitHub Secrets
 - [ ] **Rate limiting** sur `/api/v1/token/` et `/api/v1/register/`
@@ -118,13 +118,13 @@
 ## Résumé
 
 ```
-Priorité 1 (sécurité)  : ░░░░░░░░░░ 0/5
+Priorité 1 (sécurité)  : ██░░░░░░░░ 1/5
 Priorité 2 (fiabilité) : ░░░░░░░░░░ 0/6
 Priorité 3 (devops)    : ░░░░░░░░░░ 0/5
 Priorité 4 (CI/CD)     : ░░░░░░░░░░ 0/3
 Priorité 5 (frontend)  : ░░░░░░░░░░ 0/5
 Priorité 6 (nettoyage) : ░░░░░░░░░░ 0/5
 ─────────────────────────────────
-Total restant          : 29 tâches
-Total fait             : 10 tâches
+Total restant          : 28 tâches
+Total fait             : 11 tâches
 ```
