@@ -9,20 +9,6 @@ on:
 jobs:
   test-backend:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: test_clickmart
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -49,11 +35,6 @@ jobs:
         env:
           SECRET_KEY: ci-test-secret-key-not-for-prod
           DEBUG: 'True'
-          DB_NAME: test_clickmart
-          DB_USER: postgres
-          DB_PASSWORD: postgres
-          DB_HOST: localhost
-          DB_PORT: '5432'
           EMAIL_HOST_USER: test@test.com
           EMAIL_HOST_PASSWORD: test
           ALLOWED_HOSTS: localhost
@@ -79,12 +60,11 @@ jobs:
         working-directory: frontend
 
       - name: Lint
-        run: npm run lint
+        run: npm run lint || true
         working-directory: frontend
-        continue-on-error: true
 
       - name: Test
-        run: npm run test -- --run
+        run: npm test
         working-directory: frontend
 
       - name: Build
