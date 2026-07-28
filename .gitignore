@@ -177,4 +177,4 @@ backend/.env.docker
 backend/.env.production
 backend/.env.development
 backend/Dockerfile
-docker-compose.yml
+docker-compose.ymlbackend/static/

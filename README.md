@@ -71,6 +71,7 @@ source .venv/bin/activate     # Mac / Linux
 Install dependencies
 ```sh
 pip install -r requirements.txt
+pip install drf-spectacular
 ```
 
 Create ```.env``` file
@@ -823,3 +824,12 @@ git commit -m "Fix media image URL in serializer"
 git push origin main
 ```
 5. Test again.
+
+---
+
+## 📚 Guides complémentaires
+
+- [Guide de déploiement Linode](docs/deploy/DEPLOIEMENT_LINODE.md) — Architecture, firewall, procédure pas-à-pas
+- [Guide CI/CD GitHub Actions](docs/deploy/GUIDE_CICD.md) — Pipeline complet (tests → build → deploy)
+- [TODO.md](TODO.md) — Liste des tâches restantes par priorité
+- [Documentation API](http://172.239.20.14/api/docs/) — Swagger UI (DRF Spectacular)
