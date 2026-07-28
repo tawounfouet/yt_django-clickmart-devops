@@ -10,7 +10,7 @@
 - [x] **Créer un user SSH dédié** (`deploy`) — remplacer `root` dans le CI/CD
   - `adduser deploy && usermod -aG docker deploy`
   - Copier `authorized_keys`, mettre à jour `LINODE_USER` dans GitHub Secrets
-- [ ] **Rate limiting** sur `/api/v1/token/` et `/api/v1/register/`
+- [x] **Rate limiting** sur `/api/v1/token/` et `/api/v1/register/`
   - `backend/config/settings.py` → ajouter `DEFAULT_THROTTLE_CLASSES` + `DEFAULT_THROTTLE_RATES`
   - `auth: 5/minute`, `anon: 20/minute`
 - [ ] **Headers de sécurité Django**
