@@ -90,14 +90,16 @@
 
 ## ⚪ Priorité 6 — Nettoyage & documentation (1h)
 
-- [ ] **Sortir `backend/static/` du git** (163 fichiers)
+- [x] **Sortir `backend/static/` du git** (163 fichiers)
   - `echo "backend/static/" >> .gitignore && git rm -r --cached backend/static/`
-- [ ] **Supprimer `apple.jpg`** de `products/`
-- [ ] **Supprimer fichiers inutiles** dans `api/` (`models.py`, `admin.py`, `tests.py` vides)
-- [ ] **Mettre à jour `README.md`**
+- [x] **Supprimer `apple.jpg`** de `products/`
+- [x] **Supprimer fichiers inutiles** dans `api/` (`models.py`, `admin.py`, `tests.py` vides)
+- [x] **Refactor API** — structure par app (`users/api/`, `products/api/`, etc.)
+  - Supprimé `backend/api/`, créé `api/urls.py` dans chaque app
+- [x] **Mettre à jour `README.md`**
   - Corriger les sections obsolètes (ports 8000/5173 → 80/443, runserver → gunicorn)
   - Ajouter lien vers `docs/deploy/`
-- [ ] **Documentation API** (DRF Spectacular)
+- [x] **Documentation API** (DRF Spectacular)
   - `pip install drf-spectacular` → Swagger UI sur `/api/docs/`
 
 ---
@@ -123,8 +125,8 @@ Priorité 2 (fiabilité) : ✅ FAIT 6/6
 Priorité 3 (devops)    : ░░░░░░░░░░ 0/5
 Priorité 4 (CI/CD)     : ✅ FAIT 3/3
 Priorité 5 (frontend)  : ✅ FAIT 5/5
-Priorité 6 (nettoyage) : ░░░░░░░░░░ 0/5
+Priorité 6 (nettoyage) : ✅ FAIT 5/5
 ─────────────────────────────────
-Total restant          : 10 tâches
-Total fait             : 29 tâches
+Total restant          : 5 tâches
+Total fait             : 34 tâches
 ```
