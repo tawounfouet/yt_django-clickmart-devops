@@ -1,10 +1,8 @@
 services:
   db:
     image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: clickmart
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+    env_file:
+      - ./backend/.env.local
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
