@@ -105,9 +105,9 @@ def use_sqlite_fallback():
     if psycopg2 is None:
         return True
     
-    db_name = config('DB_NAME', default='')
-    db_user = config('DB_USER', default='')
-    db_password = config('DB_PASSWORD', default='')
+    db_name = config('POSTGRES_DB', default=config('DB_NAME', default=''))
+    db_user = config('POSTGRES_USER', default=config('DB_USER', default=''))
+    db_password = config('POSTGRES_PASSWORD', default=config('DB_PASSWORD', default=''))
     db_host = config('DB_HOST', default='')
     db_port = config('DB_PORT', default='')
     
@@ -139,9 +139,9 @@ else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': config('DB_NAME'),
-            'USER': config('DB_USER'),
-            'PASSWORD': config('DB_PASSWORD'),
+            'NAME': config('POSTGRES_DB', default=config('DB_NAME', default='clickmart')),
+            'USER': config('POSTGRES_USER', default=config('DB_USER', default='postgres')),
+            'PASSWORD': config('POSTGRES_PASSWORD', default=config('DB_PASSWORD', default='postgres')),
             'HOST': config('DB_HOST'),
             'PORT': config('DB_PORT')
         }
