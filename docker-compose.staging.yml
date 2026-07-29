@@ -21,6 +21,12 @@ services:
     environment:
       - ENVIRONMENT=staging
 
+  frontend:
+    build:
+      args:
+        VITE_SERVER_BASE_URL: "/api/v1"
+        VITE_ENVIRONMENT: staging
+
   nginx:
     ports:
       - "8080:80"

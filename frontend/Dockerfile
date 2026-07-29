@@ -10,9 +10,11 @@ COPY . .
 
 # Build arguments for environment variables
 ARG VITE_SERVER_BASE_URL
+ARG VITE_ENVIRONMENT
 
 # This line passes an environment variable into the Docker container so the React app knows the backend API URL.
 ENV VITE_SERVER_BASE_URL=$VITE_SERVER_BASE_URL
+ENV VITE_ENVIRONMENT=$VITE_ENVIRONMENT
 
 RUN npm run build
 

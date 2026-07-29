@@ -5,6 +5,18 @@ import { useCart } from "../context/CartContext";
 import useAuth from "../hooks/useAuth";
 import { useAxios } from "../hooks/useAxios";
 
+const ENV = import.meta.env.VITE_ENVIRONMENT || "dev";
+const ENV_COLORS = {
+  production: "danger",
+  staging: "warning",
+  dev: "secondary",
+};
+const ENV_LABELS = {
+  production: "PROD",
+  staging: "STG",
+  dev: "DEV",
+};
+
 const Header = () => {
   const [profile, setProfile] = useState(null);
   const { state } = useCart();
@@ -59,6 +71,9 @@ const Header = () => {
         <Link className="navbar-brand d-flex align-items-center" to="/">
           <i className="bi bi-bag-heart-fill text-primary me-2"></i>
           ClickMart
+          <span className={`badge bg-${ENV_COLORS[ENV]} ms-2`} style={{ fontSize: "0.65rem" }}>
+            {ENV_LABELS[ENV]}
+          </span>
         </Link>
         <button
           className="navbar-toggler"
