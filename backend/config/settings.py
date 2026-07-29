@@ -212,6 +212,8 @@ SIMPLE_JWT = {
 }
 
 EMAIL_BACKEND_TYPE = config('EMAIL_BACKEND_TYPE', default='console')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@clickmart.local')
+ADMIN_EMAIL = config('ADMIN_EMAIL', default='admin@clickmart.local')
 
 if EMAIL_BACKEND_TYPE == 'resend':
     EMAIL_BACKEND = 'django_resend.backend.ResendBackend'
