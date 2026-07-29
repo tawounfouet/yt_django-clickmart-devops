@@ -216,7 +216,7 @@ DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@clickmart.loc
 ADMIN_EMAIL = config('ADMIN_EMAIL', default='admin@clickmart.local')
 
 if EMAIL_BACKEND_TYPE == 'resend':
-    EMAIL_BACKEND = 'core.mail.ResendBackend'
+    EMAIL_BACKEND = 'core.mail.ResendEmailBackend'
     RESEND_API_KEY = config('RESEND_API_KEY')
 elif EMAIL_BACKEND_TYPE == 'smtp':
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
