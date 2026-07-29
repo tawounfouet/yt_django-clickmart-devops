@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [main, stg, dev]
   pull_request:
-    branches: [main]
+    branches: [main, stg, dev]
 
 jobs:
   test-backend:
@@ -73,7 +73,36 @@ jobs:
         env:
           VITE_SERVER_BASE_URL: /api/v1
 
-  deploy:
+  deploy-staging:
+    needs: [test-backend, test-frontend]
+    if: github.ref == 'refs/heads/stg' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy Staging to Linode
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.LINODE_HOST }}
+          username: ${{ secrets.LINODE_USER }}
+          key: ${{ secrets.LINODE_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/clickmart-stg
+            echo "=== Pull latest code (stg) ==="
+            git fetch origin stg
+            git reset --hard origin/stg
+            echo "=== Deploy Staging (port 8080) ==="
+            docker compose -p clickmart-stg -f docker-compose.yml -f docker-compose.staging.yml up --build -d
+            echo "=== Wait for services ==="
+            sleep 15
+            echo "=== Health check ==="
+            docker compose -p clickmart-stg ps
+            curl -sf http://localhost:8080/ || (echo "❌ Staging healthcheck failed" && exit 1)
+            echo "✅ Staging deployment successful"
+
+  deploy-production:
     needs: [test-backend, test-frontend]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -81,7 +110,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to Linode
+      - name: Deploy Production to Linode
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.LINODE_HOST }}
@@ -90,15 +119,15 @@ jobs:
           script: |
             set -e
             cd /opt/clickmart
-            echo "=== Pull latest code ==="
+            echo "=== Pull latest code (main) ==="
             git fetch origin main
             git reset --hard origin/main
-            echo "=== Rebuild and restart ==="
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+            echo "=== Deploy Production (ports 80/443) ==="
+            docker compose -p clickmart -f docker-compose.yml -f docker-compose.prod.yml up --build -d
             echo "=== Wait for services ==="
             sleep 15
             echo "=== Health check ==="
-            docker compose ps
+            docker compose -p clickmart ps
             curl -sf http://localhost/api/v1/products/ || (echo "❌ Backend healthcheck failed" && exit 1)
             curl -sf http://localhost/ || (echo "❌ Frontend healthcheck failed" && exit 1)
-            echo "✅ Deployment successful"
+            echo "✅ Production deployment successful"
