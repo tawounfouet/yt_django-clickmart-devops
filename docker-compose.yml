@@ -36,11 +36,6 @@ services:
 
   backend:
     build: ./backend
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     volumes:
       - ./backend/static:/app/static
       - ./backend/uploads:/app/uploads
@@ -52,11 +47,6 @@ services:
 
   celery-worker:
     build: ./backend
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     command: celery -A config worker --loglevel=info --concurrency=2
     restart: unless-stopped
     healthcheck:
@@ -68,11 +58,6 @@ services:
 
   celery-beat:
     build: ./backend
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     command: celery -A config beat --loglevel=info
     restart: unless-stopped
     healthcheck:

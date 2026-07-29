@@ -8,18 +8,33 @@ services:
       - ./backend/.envs/.staging
     environment:
       - ENVIRONMENT=staging
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   celery-worker:
     env_file:
       - ./backend/.envs/.staging
     environment:
       - ENVIRONMENT=staging
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   celery-beat:
     env_file:
       - ./backend/.envs/.staging
     environment:
       - ENVIRONMENT=staging
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   frontend:
     build:
