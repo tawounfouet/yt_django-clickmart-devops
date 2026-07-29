@@ -95,6 +95,7 @@ jobs:
           tags: ${{ env.FRONTEND_IMAGE }}:latest
           build-args: |
             VITE_SERVER_BASE_URL=/api/v1
+            VITE_ENVIRONMENT=production
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
