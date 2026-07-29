@@ -46,6 +46,11 @@ INSTALLED_APPS = [
     'orders',
     "corsheaders",
     'drf_spectacular',
+    'core',
+    'images',
+    'audio',
+    'video',
+    'documents',
 ]
 
 MIDDLEWARE = [
@@ -218,8 +223,8 @@ else:
     STATICFILES_DIRS = [
         'config/static'
     ]
-    MEDIA_URL = "/media/"
-    MEDIA_ROOT = BASE_DIR / "media"
+    MEDIA_URL = "/uploads/"
+    MEDIA_ROOT = BASE_DIR / "uploads"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

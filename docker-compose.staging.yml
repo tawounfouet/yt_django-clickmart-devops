@@ -32,7 +32,7 @@ services:
       - "8080:80"
     volumes:
       - ./infra/nginx/staging.conf:/etc/nginx/conf.d/default.conf
-      - ./backend/media:/media
+      - ./backend/uploads:/uploads
       - ./backend/static:/static:ro
 
 volumes:
