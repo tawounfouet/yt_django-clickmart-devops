@@ -87,68 +87,19 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-import os
-try:
-    import psycopg2
-except ImportError:
-    psycopg2 = None
+import dj_database_url
 
-def is_running_in_docker():
-    if os.path.exists('/.dockerenv'):
-        return True
-    try:
-        with open('/proc/self/cgroup', 'rt') as f:
-            if 'docker' in f.read():
-                return True
-    except Exception:
-        pass
-    return False
+DATABASE_URL = config('DATABASE_URL', default='')
 
-def use_sqlite_fallback():
-    if is_running_in_docker():
-        return False
-    if psycopg2 is None:
-        return True
-    
-    db_name = config('POSTGRES_DB', default=config('DB_NAME', default=''))
-    db_user = config('POSTGRES_USER', default=config('DB_USER', default=''))
-    db_password = config('POSTGRES_PASSWORD', default=config('DB_PASSWORD', default=''))
-    db_host = config('DB_HOST', default='')
-    db_port = config('DB_PORT', default='')
-    
-    if not all([db_name, db_user, db_host]):
-        return True
-        
-    try:
-        conn = psycopg2.connect(
-            dbname=db_name,
-            user=db_user,
-            password=db_password,
-            host=db_host,
-            port=db_port,
-            connect_timeout=1
-        )
-        conn.close()
-        return False
-    except Exception:
-        return True
-
-if use_sqlite_fallback():
+if DATABASE_URL:
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
+        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
     }
 else:
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': config('POSTGRES_DB', default=config('DB_NAME', default='clickmart')),
-            'USER': config('POSTGRES_USER', default=config('DB_USER', default='postgres')),
-            'PASSWORD': config('POSTGRES_PASSWORD', default=config('DB_PASSWORD', default='postgres')),
-            'HOST': config('DB_HOST'),
-            'PORT': config('DB_PORT')
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
 
