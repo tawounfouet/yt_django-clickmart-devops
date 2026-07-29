@@ -7,26 +7,24 @@ services:
     profiles:
       - disabled
 
+  redis:
+    profiles:
+      - disabled
+
   backend:
     env_file:
       - ./backend/.envs/.prod
-    depends_on:
-      redis:
-        condition: service_healthy
+    depends_on: {}
 
   celery-worker:
     env_file:
       - ./backend/.envs/.prod
-    depends_on:
-      redis:
-        condition: service_healthy
+    depends_on: {}
 
   celery-beat:
     env_file:
       - ./backend/.envs/.prod
-    depends_on:
-      redis:
-        condition: service_healthy
+    depends_on: {}
 
   frontend:
     build:
