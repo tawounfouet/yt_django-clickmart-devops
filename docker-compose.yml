@@ -19,6 +19,21 @@ services:
       retries: 5
     mem_limit: 64m
 
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 128m
+
   backend:
     build: ./backend
     depends_on:
@@ -90,3 +105,4 @@ services:
 
 volumes:
   postgres_data:
+  minio_data:
