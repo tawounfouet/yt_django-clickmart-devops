@@ -40,9 +40,8 @@
 - [ ] **Upgrade RAM Linode** — 961 MiB → 2 Go (~12$/mois)
   - Permettrait staging + prod simultanés
   - Actuellement 275 MB libre, stable mais limite
-- [ ] **Healthchecks Celery dans docker-compose.yml**
-  - `test: ["CMD", "celery", "-A", "config", "inspect", "ping"]`
-  - Déjà fait pour celery-worker/beat ✅ (ajouté le 29/07)
+- [x] **Healthchecks Celery dans docker-compose.yml**
+  - ✅ Déjà fait (29/07) — `celery inspect ping` configuré
 - [ ] **Flower monitoring** — dashboard temps réel Celery
   - `image: mher/flower`, port 5555
 - [ ] **Sentry** — error tracking conditionnel

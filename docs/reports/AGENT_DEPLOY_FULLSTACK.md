@@ -1,7 +1,7 @@
 # Rapport — Agent deploy-fullstack
 
 **Date** : 2026-07-29
-**Version** : 2.0
+**Version** : 3.0
 **Fichier** : `.opencode/agents/deploy-fullstack.md` (local) / `~/.config/opencode/agents/deploy-fullstack.md` (global)
 **Auteur** : OpenCode + Thomas Awounfouet
 
@@ -18,21 +18,28 @@
 ```
 deploy-fullstack (subagent, temperature 0.2)
 │
-├── Analyse préalable (8 étapes)
+├── Détection point de départ (table décisionnelle)
+│   ├── inventory   → génère inventory.yml
+│   ├── dry-run     → analyse complète + rapports
+│   ├── production  → déploie prod (arrête staging)
+│   └── staging     → déploie staging (arrête prod)
+│
+├── Analyse préalable (11 étapes)
 │   ├── Structure Docker
-│   ├── Structure du code
+│   ├── Structure du code et environnements
 │   ├── Stack & framework
-│   ├── Inspection Django (settings, migrations)
+│   ├── Inspection Django (settings, migrations, ENVIRONMENT)
 │   ├── Vérification dépendances Python
 │   ├── État base de données
 │   ├── Configuration reverse proxy
-│   └── Git remote
-│
-├── Détection point de départ (table décisionnelle)
+│   ├── Git remote
+│   ├── Détection fournisseur cloud (9 providers)
+│   ├── Services asynchrones (Celery/Redis)
+│   └── Détection multi-environnements
 │
 ├── preflight-check (OBLIGATOIRE)
 │   ├── Vérifications locales (8 items)
-│   ├── Vérifications distantes (6 items)
+│   ├── Vérifications distantes (7 items)
 │   └── Rapport + validation user
 │
 ├── Phase 0 — ssh-bootstrap
@@ -45,25 +52,34 @@ deploy-fullstack (subagent, temperature 0.2)
 │   └── Création user deploy
 │
 ├── Phase 2 — code-deploy
+│   ├── Sélection environnement (production/staging)
+│   ├── Arrêt de l'autre stack (anti-OOM)
 │   ├── Stratégie git-first (deploy key GitHub)
-│   ├── Fallback rsync
-│   ├── Configuration .env
-│   ├── Adaptation reverse proxy
-│   └── docker compose up + health check
+│   ├── Configuration .envs/.prod ou .envs/.staging
+│   ├── docker compose -p clickmart -f base -f override up
+│   └── Health check
 │
 ├── Phase 3 — cicd (optionnel)
-│   └── GitHub Actions + secrets
+│   └── GitHub Actions conditionnel par branche
 │
-├── Phase 4 — ssl (optionnel)
+├── Phase 4 — ssl (production uniquement)
 │   └── Let's Encrypt + Certbot
 │
 ├── Phase 5 — post-deploy validation (OBLIGATOIRE)
 │   ├── Conteneurs + logs
 │   ├── Endpoints HTTP
 │   ├── Migrations Django
-│   └── Statics
+│   ├── Statics
+│   └── Celery workers (ping, queues)
 │
 ├── Mode dry-run
+│   ├── Analyse 11 étapes + preflight (sans rien toucher)
+│   ├── Génère/maj DRY_RUN_REPORT.md (document vivant)
+│   └── Génère/maj inventory.yml (machine-readable)
+│
+├── Commande inventory
+│   └── Génère/maj inventory.yml uniquement (pas d'analyse)
+│
 ├── Rollback automatique
 └── Synchronisation serveur → dépôt
 ```
@@ -101,6 +117,10 @@ Git remote       : git@github.com:user/repo.git
 
 | Input user | Phase de démarrage |
 |---|---|
+| `inventory` | Génère/maj `inventory.yml` uniquement |
+| `dry-run` | Analyse complète + DRY_RUN_REPORT.md + inventory.yml |
+| `production` ou `prod` | Déploiement production (arrête staging avant) |
+| `staging` ou `stg` | Déploiement staging (arrête prod avant) |
 | IP + user + mot de passe | Phase 0 (ssh-bootstrap) |
 | IP + user + clé SSH ok | Phase 1 (server-setup) |
 | Serveur prêt (Docker/Git/UFW) | Phase 2 (code-deploy) |
@@ -145,7 +165,18 @@ Configure l'authentification SSH par clé quand le user n'a que IP + user + mot 
 3. Clone le dépôt
 4. Fallback rsync si gh CLI indisponible
 
-Puis : configuration `.env`, adaptation nginx, `docker compose up -d --build`, health check.
+**Sélection d'environnement** : l'agent demande `production` ou `staging` si le projet a plusieurs environnements. Utilise les fichiers Compose appropriés :
+
+```bash
+# Production
+docker compose -p clickmart -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Staging
+docker compose -p clickmart-stg -f docker-compose.yml -f docker-compose.staging.yml up -d --build
+```
+
+**Règle anti-OOM** : avant de déployer, l'agent vérifie si l'autre environnement tourne et l'arrête. Les deux stacks ne doivent jamais coexister sur un VPS < 2 Go.
+
+Puis : configuration `.envs/.prod` ou `.envs/.staging`, adaptation nginx, health check.
 
 ### Phase 3 : cicd (optionnel)
 
@@ -168,6 +199,16 @@ Après chaque déploiement :
 ### Mode dry-run
 
 Analyse complète sans rien toucher. Le user dit "dry-run", "simulation" ou "à blanc".
+
+**Fichiers générés** :
+- `DRY_RUN_REPORT.md` — rapport humain (Parties A/B/C/D + Annexe), document vivant de l'état du projet
+- `inventory.yml` — inventaire machine-readable (YAML structuré : server, containers, celery, django, ssl, cicd, firewall...)
+
+Si les fichiers existent déjà, ils sont mis à jour (problèmes résolus déplacés, nouveaux problèmes ajoutés). Si rien n'a changé, seule la date est mise à jour.
+
+### Commande inventory
+
+`@deploy-fullstack inventory` génère ou met à jour uniquement `inventory.yml` sans refaire l'analyse complète. Lecture rapide de `DRY_RUN_REPORT.md` + `docker-compose.yml` + `settings.py`.
 
 ### Rollback
 
@@ -210,13 +251,15 @@ La version locale **prend le dessus** sur la globale si elle existe. La version 
 
 ## Points forts
 
-- **Zéro présupposition** : analyse le `docker-compose.yml` pour détecter les services, s'adapte (backend-only, fullstack, avec/sans nginx, etc.)
+- **Zéro présupposition** : analyse le `docker-compose.yml` pour détecter les services, s'adapte (backend-only, fullstack, avec/sans nginx, Celery, etc.)
 - **Sécurité intégrée** : user `deploy` (pas root), clé SSH, firewall UFW, groupe docker
+- **Multi-environnement** : production/staging avec `-p project`, stacks isolées, arrêt automatique de l'autre environnement
 - **Validation à chaque étape** : preflight, post-deploy, rapports structurés
 - **Git-first** : stratégie de déploiement compatible CI/CD dès le départ
 - **Inspection Django** : détecte les erreurs de configuration avant le déploiement
-- **Dry-run** : analyse sans risque avant de déployer
+- **Dry-run** : analyse sans risque avant de déployer, génère DRY_RUN_REPORT.md + inventory.yml
 - **Rollback** : retour arrière automatique en cas d'échec
+- **Documentation vivante** : DRY_RUN_REPORT.md et inventory.yml mis à jour automatiquement
 
 ## Historique des améliorations
 
@@ -229,42 +272,51 @@ La version locale **prend le dessus** sur la globale si elle existe. La version 
 | 1.4 | 2026-07-29 | Création user `deploy` (plus de root après phase 1) |
 | 1.5 | 2026-07-29 | Version globale + adaptation backend-only |
 | 2.0 | 2026-07-29 | Inspection Django, git-first, post-deploy validation, dry-run, rollback, synchro serveur→dépôt |
+| 2.1 | 2026-07-29 | Support Celery/Redis, détection fournisseur cloud (9 providers), multi-environnements |
+| 3.0 | 2026-07-29 | Commande `inventory`, `@deploy-fullstack production\|staging`, règle anti-OOM, DRY_RUN_REPORT.md + inventory.yml auto-générés, mode dry-run enrichi (annexe de raisonnement)
 
 ## Retour d'expérience (sessions réelles)
 
-L'agent a été utilisé avec succès sur deux projets :
+L'agent a été utilisé avec succès sur trois déploiements :
 
 | Projet | Serveur | Résultat |
 |---|---|---|
-| ClickMart (Django + React) | IONOS 87.106.222.62 | Déploiement complet from-scratch, 5 conteneurs healthy |
+| ClickMart (Django + React) | IONOS 87.106.222.62 | Déploiement complet from-scratch, 5→8 conteneurs healthy |
+| ClickMart (Django + React + Celery) | Linode 172.239.20.14 | Production webtech-dev.info, CI/CD actif |
 | Amifond (Django backend) | À déterminer | Déploiement réussi, bugs settings corrigés en amont |
 
-**Bugs évités grâce à l'inspection Django (v2.0)** :
+**Bugs évités grâce à l'inspection Django (v2.0+)** :
 - `ENVIRONMENT=prd` non reconnu → corrigé avant déploiement
 - `SECURE_SSL_REDIRECT` hardcodé → rendu configurable
 - `drf-nested-routers` absent de requirements.txt → détecté et corrigé
 - Base corrompue par migrations partielles → reset avant déploiement
-
----
+- `celery.py` parasite → import circulaire → détecté et supprimé
+- `SECRET_KEY` faible → régénérée
+- CORS origines HTTPS manquantes → ajoutées
+- env_file merge (Docker Compose) → corrigé par suppression de la base
+- Nginx DNS caching → `resolver 127.0.0.11` ajouté
 
 ## Commandes de référence
 
 ```bash
 # Invoquer l'agent
-@deploy-fullstack
+@deploy-fullstack                    # Déploiement (demande l'environnement)
+@deploy-fullstack production         # Déploiement production (arrête staging)
+@deploy-fullstack staging            # Déploiement staging (arrête prod)
+@deploy-fullstack dry-run            # Analyse sans déployer + rapports
+@deploy-fullstack inventory          # Générer/maj inventory.yml uniquement
 
-# Dry-run (analyse sans déployer)
-@deploy-fullstack dry-run
-
-# Déploiement complet
+# Déploiement from-scratch
 IP: 87.106.222.62, user: root, mdp: xxxxx
 ```
 
 ## Prochaines évolutions possibles
 
+- [x] ~~Support multi-environnements (staging/production)~~
+- [x] ~~Détection automatique du fournisseur cloud (IONOS, Linode, AWS, etc.)~~
+- [x] ~~Support Celery / Redis / workers asynchrones~~
 - [ ] Intégration vault de secrets (1Password, Bitwarden)
-- [ ] Support multi-environnements (staging/production)
-- [ ] Détection automatique du fournisseur cloud (IONOS, Linode, AWS, etc.)
 - [ ] Support Docker Swarm / Kubernetes
-- [ ] Support Celery / Redis / workers asynchrones
 - [ ] Export de la configuration comme template Terraform/Ansible
+- [ ] Auto-détection du type de CI/CD (GitHub Actions, GitLab CI, etc.)
+- [ ] Notification post-déploiement (Slack, Discord, email)

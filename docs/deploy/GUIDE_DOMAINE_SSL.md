@@ -1,3 +1,5 @@
+> **⚠️ DOCUMENT HISTORIQUE — État au 28 juillet 2026. Pour l'état actuel, voir DRY_RUN_REPORT.md à la racine du projet.**
+
 # Guide Domaine + SSL — ClickMart
 
 > Configurer un nom de domaine et HTTPS avec Let's Encrypt

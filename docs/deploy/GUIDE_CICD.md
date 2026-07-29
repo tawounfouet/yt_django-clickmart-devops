@@ -1,3 +1,5 @@
+> **⚠️ DOCUMENT HISTORIQUE — État au 28 juillet 2026. Pour l'état actuel, voir DRY_RUN_REPORT.md à la racine du projet.**
+
 # Guide CI/CD — GitHub Actions → Linode
 
 > Mise en place pas-à-pas du pipeline d'intégration et déploiement continu

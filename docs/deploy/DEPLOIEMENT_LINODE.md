@@ -1,3 +1,5 @@
+> **⚠️ DOCUMENT HISTORIQUE — État au 28 juillet 2026. Pour l'état actuel, voir DRY_RUN_REPORT.md à la racine du projet.**
+
 # Déploiement ClickMart sur Linode — Guide complet
 
 > Date du déploiement : 28 juillet 2026

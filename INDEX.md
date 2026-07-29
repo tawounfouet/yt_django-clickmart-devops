@@ -1,6 +1,7 @@
 # INDEX — ClickMart
 
 > Plan du dépôt et guide de navigation.
+> Dernière mise à jour : 29 juillet 2026
 
 ---
 
@@ -8,14 +9,19 @@
 
 | Fichier | Rôle |
 |---------|------|
-| `README.md` | Tutorial de déploiement complet (820 lignes) |
-| `AGENTS.md` | Instructions OpenCode pour l'agent |
-| `ANALYSE_CODECOMPLETE.md` | Analyse exhaustive de la codebase |
-| `ARCHITECTURE.md` | Documentation d'architecture |
-| `CHANGELOG.md` | Historique des modifications |
-| `docker-compose.yml` | Orchestration multi-services (Docker Compose) |
-| `.gitignore` | 180 lignes (ignore Dockerfiles, .env.docker/prod) |
-| `.github/workflows/` | **Vide** — CI/CD à implémenter |
+| `README.md` | Présentation du projet, stack, démarrage rapide |
+| `ARCHITECTURE.md` | Architecture complète (v2.0) |
+| `CONTRIBUTING.md` | Guide de contribution (workflow, conventions) |
+| `SDLC.md` | Cycle de développement (7 phases, outils par phase) |
+| `TODO.md` | Tâches restantes par priorité |
+| `CHANGELOG.md` | Historique des versions |
+| `DRY_RUN_REPORT.md` | État de l'infrastructure (auto-généré) |
+| `inventory.yml` | Inventaire machine-readable |
+| `docker-compose.yml` | Base Docker Compose |
+| `docker-compose.prod.yml` | Override production |
+| `docker-compose.staging.yml` | Override staging |
+| `Makefile` | Commandes rapides (up-staging, up-prod...) |
+| `.github/workflows/automate.yml` | Pipeline CI/CD (tests → build ghcr.io → deploy) |
 
 ---
 
