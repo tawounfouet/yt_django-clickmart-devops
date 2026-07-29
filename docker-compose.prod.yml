@@ -1,19 +1,19 @@
 services:
   db:
     env_file:
-      - ./backend/.env.prod
+      - ./backend/.envs/.prod
 
   backend:
     env_file:
-      - ./backend/.env.prod
+      - ./backend/.envs/.prod
 
   celery-worker:
     env_file:
-      - ./backend/.env.prod
+      - ./backend/.envs/.prod
 
   celery-beat:
     env_file:
-      - ./backend/.env.prod
+      - ./backend/.envs/.prod
 
   nginx:
     ports:

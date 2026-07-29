@@ -172,9 +172,9 @@ cython_debug/
 #.idea/
 
 # End of https://www.toptal.com/developers/gitignore/api/django
-backend/.env.local
-backend/.env.staging
-backend/.env.prod
+backend/.envs/.local
+backend/.envs/.staging
+backend/.envs/.prod
 backend/static/
 infra/certbot/conf/*
 !infra/certbot/conf/.gitkeep

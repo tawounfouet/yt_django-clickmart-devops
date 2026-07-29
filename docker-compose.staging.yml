@@ -1,23 +1,23 @@
 services:
   db:
     env_file:
-      - ./backend/.env.staging
+      - ./backend/.envs/.staging
 
   backend:
     env_file:
-      - ./backend/.env.staging
+      - ./backend/.envs/.staging
     environment:
       - ENVIRONMENT=staging
 
   celery-worker:
     env_file:
-      - ./backend/.env.staging
+      - ./backend/.envs/.staging
     environment:
       - ENVIRONMENT=staging
 
   celery-beat:
     env_file:
-      - ./backend/.env.staging
+      - ./backend/.envs/.staging
     environment:
       - ENVIRONMENT=staging
 
