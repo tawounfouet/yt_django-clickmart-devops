@@ -10,6 +10,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    mem_limit: 200m
 
   redis:
     image: redis:7-alpine
@@ -18,6 +19,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    mem_limit: 64m
 
   backend:
     build: ./backend
@@ -35,6 +37,7 @@ services:
       sh -c "python manage.py collectstatic --noinput &&
              python manage.py migrate &&
              gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+    mem_limit: 256m
 
   celery-worker:
     build: ./backend
@@ -52,6 +55,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    mem_limit: 256m
 
   celery-beat:
     build: ./backend
@@ -69,6 +73,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    mem_limit: 64m
 
   frontend:
     build:
@@ -77,6 +82,7 @@ services:
         VITE_SERVER_BASE_URL: "/api/v1"
     depends_on:
       - backend
+    mem_limit: 128m
 
   nginx:
     image: nginx:alpine
@@ -97,6 +103,7 @@ services:
     depends_on:
       - frontend
       - backend
+    mem_limit: 32m
 
   certbot:
     image: certbot/certbot
@@ -109,6 +116,7 @@ services:
     restart: unless-stopped
     depends_on:
       - nginx
+    mem_limit: 32m
 
 volumes:
   postgres_data:
