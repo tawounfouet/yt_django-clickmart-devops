@@ -1,8 +1,6 @@
 services:
   db:
     image: postgres:16-alpine
-    env_file:
-      - ./backend/.envs/.local
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -23,8 +21,6 @@ services:
 
   backend:
     build: ./backend
-    env_file:
-      - ./backend/.envs/.local
     depends_on:
       db:
         condition: service_healthy
@@ -41,8 +37,6 @@ services:
 
   celery-worker:
     build: ./backend
-    env_file:
-      - ./backend/.envs/.local
     depends_on:
       db:
         condition: service_healthy
@@ -59,8 +53,6 @@ services:
 
   celery-beat:
     build: ./backend
-    env_file:
-      - ./backend/.envs/.local
     depends_on:
       db:
         condition: service_healthy
