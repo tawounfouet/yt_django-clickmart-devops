@@ -185,11 +185,21 @@ USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
+# Static = ALWAYS local filesystem, served by Nginx
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STORAGE_BACKEND = config('STORAGE_BACKEND', default='local')
+STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'static'
+STATICFILES_DIRS = [
+    'config/static'
+]
 
-if STORAGE_BACKEND == 's3':
+# Media files (user uploads) — configurable backend
+# https://docs.djangoproject.com/en/5.2/topics/files/
+
+MEDIA_STORAGE_BACKEND = config('MEDIA_STORAGE_BACKEND', default='local')
+
+if MEDIA_STORAGE_BACKEND == 's3':
     INSTALLED_APPS += ['storages']
 
     AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
@@ -204,25 +214,21 @@ if STORAGE_BACKEND == 's3':
     AWS_S3_SIGNATURE_VERSION = 's3v4'
     AWS_S3_ADDRESSING_STYLE = config('AWS_S3_ADDRESSING_STYLE', default='virtual')
 
-    STORAGES = {
-        'default': {
-            'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
-        },
-        'staticfiles': {
-            'BACKEND': 'storages.backends.s3boto3.S3ManifestStaticStorage',
-        },
-    }
-
-    STATIC_URL = f'https://{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/static/' if AWS_S3_ENDPOINT_URL else f'https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/static/'
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     MEDIA_URL = f'https://{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/media/' if AWS_S3_ENDPOINT_URL else f'https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/media/'
-    STATIC_ROOT = None
-    MEDIA_ROOT = None
+
+elif MEDIA_STORAGE_BACKEND == 'cloudinary':
+    INSTALLED_APPS += ['cloudinary_storage', 'cloudinary']
+
+    CLOUDINARY_STORAGE = {
+        'CLOUD_NAME': config('CLOUDINARY_CLOUD_NAME'),
+        'API_KEY': config('CLOUDINARY_API_KEY'),
+        'API_SECRET': config('CLOUDINARY_API_SECRET'),
+    }
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    MEDIA_URL = f'https://res.cloudinary.com/{config("CLOUDINARY_CLOUD_NAME")}/'
+
 else:
-    STATIC_URL = 'static/'
-    STATIC_ROOT = BASE_DIR / 'static'
-    STATICFILES_DIRS = [
-        'config/static'
-    ]
     MEDIA_URL = "/uploads/"
     MEDIA_ROOT = BASE_DIR / "uploads"
 
