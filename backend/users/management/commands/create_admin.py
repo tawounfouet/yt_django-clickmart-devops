@@ -18,7 +18,7 @@ class Command(BaseCommand):
             user.is_staff = True
             user.is_superuser = True
             user.save()
-            self.stdout.write(self.style.WARNING(f"Admin {email} already exists — password updated"))
+            self.stdout.write(self.style.WARNING(f"Admin {email} exists — password updated"))
         else:
-            User.objects.create_superuser(email=email, password=password)
+            User.objects.create_superuser(email=email, password=password, username=email)
             self.stdout.write(self.style.SUCCESS(f"Admin {email} created"))
