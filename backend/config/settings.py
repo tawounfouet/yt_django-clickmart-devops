@@ -211,12 +211,20 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7)
 }
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = config('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+EMAIL_BACKEND_TYPE = config('EMAIL_BACKEND_TYPE', default='console')
+
+if EMAIL_BACKEND_TYPE == 'resend':
+    EMAIL_BACKEND = 'django_resend.backend.ResendBackend'
+    RESEND_API_KEY = config('RESEND_API_KEY')
+elif EMAIL_BACKEND_TYPE == 'smtp':
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = 'smtp.gmail.com'
+    EMAIL_PORT = 587
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+    EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
