@@ -24,7 +24,7 @@ services:
   backend:
     build: ./backend
     env_file:
-      - ./backend/.env.docker
+      - ./backend/.env.local
     depends_on:
       db:
         condition: service_healthy
@@ -42,7 +42,7 @@ services:
   celery-worker:
     build: ./backend
     env_file:
-      - ./backend/.env.docker
+      - ./backend/.env.local
     depends_on:
       db:
         condition: service_healthy
@@ -60,7 +60,7 @@ services:
   celery-beat:
     build: ./backend
     env_file:
-      - ./backend/.env.docker
+      - ./backend/.env.local
     depends_on:
       db:
         condition: service_healthy
