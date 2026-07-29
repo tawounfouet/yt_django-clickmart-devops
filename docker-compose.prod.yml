@@ -1,0 +1,44 @@
+services:
+  db:
+    env_file:
+      - ./backend/.env.prod
+
+  backend:
+    env_file:
+      - ./backend/.env.prod
+
+  celery-worker:
+    env_file:
+      - ./backend/.env.prod
+
+  celery-beat:
+    env_file:
+      - ./backend/.env.prod
+
+  nginx:
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./infra/certbot/www:/var/www/certbot
+      - ./infra/certbot/conf:/etc/letsencrypt
+      - ./backend/media:/media
+      - ./backend/static:/static:ro
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./infra/certbot/www:/var/www/certbot
+      - ./infra/certbot/conf:/etc/letsencrypt
+      - ./infra/scripts/certbot-deploy-hook.sh:/usr/local/bin/deploy-hook.sh:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet --deploy-hook /usr/local/bin/deploy-hook.sh; sleep 12h; done'"
+    restart: unless-stopped
+    depends_on:
+      - nginx
+    mem_limit: 32m
+
+volumes:
+  postgres_data:
+    name: clickmart_postgres_data

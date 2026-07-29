@@ -94,7 +94,7 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             echo "=== Rebuild and restart ==="
-            docker compose up --build -d
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
             echo "=== Wait for services ==="
             sleep 15
             echo "=== Health check ==="
