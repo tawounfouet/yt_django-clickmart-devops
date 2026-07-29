@@ -12,22 +12,22 @@ services:
       - disabled
 
   backend:
+    image: ghcr.io/tawounfouet/clickmart-backend:latest
     env_file:
       - ./backend/.envs/.prod
 
   celery-worker:
+    image: ghcr.io/tawounfouet/clickmart-backend:latest
     env_file:
       - ./backend/.envs/.prod
 
   celery-beat:
+    image: ghcr.io/tawounfouet/clickmart-backend:latest
     env_file:
       - ./backend/.envs/.prod
 
   frontend:
-    build:
-      args:
-        VITE_SERVER_BASE_URL: "/api/v1"
-        VITE_ENVIRONMENT: production
+    image: ghcr.io/tawounfouet/clickmart-frontend:latest
 
   nginx:
     ports:
