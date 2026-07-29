@@ -195,7 +195,7 @@ if STORAGE_BACKEND == 's3':
     AWS_S3_FILE_OVERWRITE = False
     AWS_DEFAULT_ACL = 'public-read'
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
-    AWS_LOCATION = 'static'
+    AWS_LOCATION = 'clickmart'
     AWS_S3_SIGNATURE_VERSION = 's3v4'
     AWS_S3_ADDRESSING_STYLE = config('AWS_S3_ADDRESSING_STYLE', default='virtual')
 
