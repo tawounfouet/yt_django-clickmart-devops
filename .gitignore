@@ -180,3 +180,10 @@ infra/certbot/conf/*
 !infra/certbot/conf/.gitkeep
 infra/certbot/www/*
 !infra/certbot/www/.gitkeep
+notes.txt
+inventory.yml
+docker-compose.override.yml
+backend/.envs/.local
+backend/.envs/.staging
+backend/.envs/.prod
+archives/sessions/

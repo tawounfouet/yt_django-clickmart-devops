@@ -1,0 +1,68 @@
+---
+- name: Provision ClickMart server
+  hosts: clickmart-prod
+  become: yes
+  vars_files:
+    - group_vars/all.yml
+
+  pre_tasks:
+    - name: Check if vault secrets file exists locally
+      stat:
+        path: "{{ playbook_dir }}/group_vars/secrets.yml"
+      register: secrets_file
+      delegate_to: localhost
+      become: no
+      tags: always
+
+    - name: Load vault secrets
+      include_vars:
+        file: group_vars/secrets.yml
+      when: secrets_file.stat.exists
+      tags: always
+    - name: Gather facts
+      setup:
+
+    - name: Check minimum requirements
+      assert:
+        that:
+          - ansible_facts.memtotal_mb >= 960
+          - ansible_facts.distribution == "Ubuntu"
+          - ansible_facts.distribution_version is version("22.04", ">=")
+        fail_msg: "Le serveur ne répond pas aux prérequis (Ubuntu ≥ 22.04, RAM ≥ 960 MB)"
+
+  roles:
+    - role: docker
+      tags: [docker, always]
+
+    - role: clickmart_app
+      tags: [app, always]
+
+    - role: ssl_certbot
+      tags: [ssl, optional]
+      when: ssl_enabled | default(true)
+
+    - role: github_actions
+      tags: [cicd, optional]
+      when: cicd_enabled | default(false)
+
+  post_tasks:
+    - name: Health check — frontend
+      uri:
+        url: "https://{{ domain }}/"
+        status_code: [200, 301, 302]
+      register: health_frontend
+      ignore_errors: yes
+
+    - name: Health check — API
+      uri:
+        url: "https://{{ domain }}/api/v1/products/"
+        status_code: [200, 301, 302]
+      register: health_api
+      ignore_errors: yes
+
+    - name: Display health results
+      debug:
+        msg:
+          - "Frontend: {{ 'OK' if health_frontend.status in (200,301,302) else 'FAIL' }}"
+          - "API:      {{ 'OK' if health_api.status in (200,301,302) else 'FAIL' }}"
+          - "Domaine:  https://{{ domain }}"

@@ -21,6 +21,8 @@ Tu es un agent de déploiement pour ce projet Django + React (Docker Compose).
 
 | Le user fournit... | Commencer par... |
 |---|---|
+| `inventory` | **Générer/mettre à jour `inventory.yml`** depuis DRY_RUN_REPORT.md |
+| `dry-run` | **Mode analyse sans déploiement** + mise à jour DRY_RUN_REPORT.md |
 | IP + user + mot de passe (pas de clé SSH) | **Phase 0** : ssh-bootstrap |
 | IP + user + clé SSH déjà configurée | **Phase 1** : server-setup |
 | Serveur déjà préparé (Docker/Git/UFW OK) | **Phase 2** : code-deploy |

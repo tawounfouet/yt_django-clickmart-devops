@@ -1,4 +1,3 @@
-asgiref==3.11.0
 Django>=5.2,<6.0
 django-cors-headers==4.9.0
 djangorestframework==3.16.1
@@ -6,14 +5,14 @@ djangorestframework_simplejwt==5.5.1
 pillow==12.0.0
 psycopg2-binary==2.9.11
 PyJWT==2.10.1
-python-decouple==3.8
+django-environ==0.12.0
 sqlparse==0.5.4
 gunicorn==22.0.0
 drf-spectacular==0.28.0
 celery==5.6.0
 redis==6.2.0
-dj-database-url==3.1.2
 django-storages[s3]==1.14.6
 boto3==1.35.99
 django-cloudinary-storage==0.3.0
 resend==2.9.0
+sentry-sdk[django]==2.43.0

@@ -1,0 +1,62 @@
+---
+- name: Ensure /opt/clickmart directory exists
+  file:
+    path: /opt/clickmart
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: 0755
+
+- name: Clone repository
+  git:
+    repo: "https://github.com/tawounfouet/yt_django-clickmart-devops.git"
+    dest: /opt/clickmart
+    version: main
+    force: yes
+  become_user: deploy
+  register: git_result
+
+- name: Ensure .envs directory exists
+  file:
+    path: /opt/clickmart/backend/.envs
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: 0700
+
+- name: Generate .env.prod from template
+  template:
+    src: .env.prod.j2
+    dest: /opt/clickmart/backend/.envs/.prod
+    owner: deploy
+    group: deploy
+    mode: 0600
+
+- name: Pull latest images
+  community.docker.docker_compose_v2:
+    project_src: /opt/clickmart
+    files:
+      - docker-compose.yml
+      - docker-compose.prod.yml
+    state: present
+    pull: always
+    build: never
+  become_user: deploy
+  register: compose_result
+
+- name: Wait for containers to stabilize
+  pause:
+    seconds: 15
+
+- name: Check container status
+  community.docker.docker_compose_v2:
+    project_src: /opt/clickmart
+    files:
+      - docker-compose.yml
+      - docker-compose.prod.yml
+  become_user: deploy
+  register: compose_ps
+
+- name: Show running containers
+  debug:
+    var: compose_ps.containers | map(attribute='Name') | list

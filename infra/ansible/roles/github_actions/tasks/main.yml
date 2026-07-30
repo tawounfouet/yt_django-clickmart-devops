@@ -1,0 +1,38 @@
+---
+- name: Check GitHub CLI availability
+  command: which gh
+  delegate_to: localhost
+  register: gh_check
+  changed_when: no
+  failed_when: no
+
+- name: Check GitHub authentication
+  command: gh auth status
+  delegate_to: localhost
+  register: gh_auth
+  changed_when: no
+  failed_when: no
+  when: gh_check.rc == 0
+
+- name: Set GitHub secrets
+  command: >
+    gh secret set {{ item.name }}
+    --body "{{ item.value }}"
+    --repo tawounfouet/yt_django-clickmart-devops
+  delegate_to: localhost
+  loop:
+    - { name: VPS_HOST, value: "{{ ansible_host }}" }
+    - { name: VPS_USER, value: "deploy" }
+    - { name: VPS_SSH_KEY, value: "{{ lookup('file', lookup('env','HOME') + '/.ssh/id_ed25519') }}" }
+  when: gh_check.rc == 0 and gh_auth.rc == 0
+  no_log: yes
+
+- name: Display CI/CD setup instructions
+  debug:
+    msg:
+      - "GitHub Actions configuré si gh CLI était disponible."
+      - "Sinon, ajouter manuellement les secrets :"
+      - "  gh secret set VPS_HOST --body '{{ ansible_host }}'"
+      - "  gh secret set VPS_USER --body 'deploy'"
+      - "  gh secret set VPS_SSH_KEY --body '$(cat ~/.ssh/id_ed25519)'"
+      - "  Repo: tawounfouet/yt_django-clickmart-devops"

@@ -13,6 +13,7 @@ const DashboardHome = lazy(() => import("./pages/DashboardHome"));
 const Orders = lazy(() => import("./pages/Orders"));
 const OrderSuccess = lazy(() => import("./pages/OrderSuccess"));
 const PrivateRoute = lazy(() => import("./pages/PrivateRoute"));
+const GuestRoute = lazy(() => import("./pages/GuestRoute"));
 const ProductDetail = lazy(() => import("./pages/ProductDetails"));
 const ProfileSettings = lazy(() => import("./pages/ProfileSetting"));
 
@@ -34,8 +35,10 @@ function App() {
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Register />} />
+          <Route element={<GuestRoute />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Register />} />
+          </Route>
           <Route element={<PrivateRoute />}>
             <Route path="/dashboard" element={<Dashboard />}>
               <Route index element={<DashboardHome />} />

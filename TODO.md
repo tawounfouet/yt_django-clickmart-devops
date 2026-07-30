@@ -1,10 +1,12 @@
 # TODO.md — ClickMart
 
-> Priorisé par criticité. Dernière mise à jour : 29 juillet 2026
+> Priorisé par criticité. Dernière mise à jour : 30 juillet 2026
 
 ---
 
-## ✅ Déjà réalisé (session du 29/07)
+## ✅ Déjà réalisé
+
+### Session 29/07
 
 - [x] Branches dev/stg/main + CI/CD conditionnel
 - [x] Docker Compose split (base + prod + staging overrides)
@@ -23,10 +25,50 @@
 - [x] Admin auto-création (create_admin command)
 - [x] Documentation (7 rapports, ARCHITECTURE v2, README v2)
 
+### Session 30/07 — CI/CD v3 + Améliorations VocalFit
+
+- [x] Pipeline v3 : jobs split lint/test/build (6 jobs au lieu de 2)
+- [x] Lint strict (suppression `|| true` sur ruff et eslint)
+- [x] `working-directory` via `defaults` (backend et frontend)
+- [x] Script de déploiement externalisé : `infra/scripts/deploy-app.sh`
+- [x] Health checks enrichis (frontend + API + swap, 301/302 acceptés)
+- [x] Renommage `automate.yml` → `ci-cd.yml`
+- [x] Mise à jour `LINODE_SSH_KEY` après reprovisionnement Ansible
+- [x] Documentation Ansible complète (10 fichiers) dans `docs/infra/ansible/`
+- [x] Documentation bugs CI/CD dans `docs/debug/2026-07-30_CI-CD_bugs.md`
+- [x] Mise à jour `docs/reports/GESTION_CICD.md` → v3.0
+- [x] Analyse comparative VocalFit : `docs/analyse/ANALYSE_VOCALFIT_CLICKMART.md`
+- [x] Plan d'implémentation : `docs/plans/PLAN_AMELIORATIONS_VOCALFIT.md`
+
+### Session 30/07 — Quick Wins (VocalFit → ClickMart)
+
+- [x] `django-environ` remplace `python-decouple` + `dj-database-url`
+- [x] Sentry backend + frontend intégré, conditionnel (SENTRY_DSN)
+- [x] GuestGuard (PrivateRoute existait déjà = AuthGuard)
+- [x] apiClient avec singleton refresh queue (remplacement redirect 401 brutale)
+- [x] Makefile enrichi (9 cibles : api-test, api-lint, api-shell, web-test, web-lint, web-build, ci)
+
+### Session 30/07 — Qualité (VocalFit → ClickMart)
+
+- [x] pytest + pytest-django + pytest-cov + model_bakery installés
+- [x] `pytest.ini` créé + `conftest.py` avec 7 fixtures partagées
+- [x] Tous les tests migrés vers pytest + model_bakery (4 apps, 64 tests)
+- [x] INDEX.md créé (arborescence + endpoints + composants)
+
+### Session 30/07 — Architecture (UUID & Ops)
+
+- [x] UUID PKs — `id` remplacé par UUIDField sur 6 modèles (User, Product, Cart, CartItem, Order, OrderItem)
+- [x] URLs `<int:pk>` → `<uuid:pk>`, serializers nettoyés, fallback legacy supprimé
+- [x] fail2ban — ajouté au rôle Ansible docker (SSH jail, maxretry 3, bantime 1h)
+- [x] DB backup — rétention hebdomadaire 30j (copie le dimanche)
+
 ---
 
 ## 🔴 Priorité 1 — Sécurité / Fiabilité
 
+- [ ] **Chiffrer secrets.yml avec ansible-vault**
+  - `ansible-vault encrypt infra/ansible/group_vars/secrets.yml`
+  - Ajouter `--ask-vault-pass` à la commande de déploiement
 - [ ] **Rate limiting Nginx** — `limit_req_zone` + `limit_req` dans prod.conf
   - Actuellement couvert par DRF throttling (anon 20/min, user 60/min)
 - [ ] **django-celery-beat** — scheduler DB-backed pour tâches périodiques
@@ -44,12 +86,31 @@
   - ✅ Déjà fait (29/07) — `celery inspect ping` configuré
 - [ ] **Flower monitoring** — dashboard temps réel Celery
   - `image: mher/flower`, port 5555
-- [ ] **Sentry** — error tracking conditionnel
-  - `SENTRY_DSN` dans .env, chargement conditionnel dans celery.py
+- [x] **Sentry** — error tracking conditionnel
+  - `SENTRY_DSN` dans .env, chargement conditionnel dans settings.py + main.jsx
+- [x] **apiClient refresh token** — singleton queue, retry automatique
+- [x] **GuestGuard** — protection login/register si déjà authentifié
+- [x] **django-environ** — remplace python-decouple + dj-database-url
 
 ---
 
 ## 🟡 Priorité 3 — Dette technique
+
+- [x] **pytest + model_bakery** — remplacer Django TestCase
+  - ✅ 4 apps migrées, 64 tests, fixtures partagées, `conftest.py`
+- [ ] **INDEX.md** — arborescence complète + index des endpoints API
+  - Basé sur le pattern VocalFit : `INDEX.md` à la racine du repo
+- [x] **UUID PKs** — remplacer auto-increment par UUIDs (non énumérable)
+  - ✅ 6 modèles migrés, URLs `<uuid:pk>`, plus de fallback int
+- [x] **fail2ban** — protection SSH brute-force dans le rôle Ansible docker
+- [x] **DB backup rétention** — rotation quotidienne 7j + hebdomadaire 30j
+- [ ] **Nettoyer `deploy-app.sh`** — supprimer le git fetch redondant (fait aussi en inline)
+
+- [ ] **Ansible : multi-environnements** — ajouter `staging` à l'inventory
+  - Host `clickmart-staging` avec ses propres vars (domaine, IP, env)
+  - `--limit staging` pour déployer staging uniquement
+- [ ] **Ansible : CI/CD** — intégrer le playbook dans `.github/workflows/ci-cd.yml`
+  - Job `provision` optionnel avec `workflow_dispatch`
 
 - [ ] **Compléter les skeletons media** — installer les lib et activer les process
   - `apps/audio/` → `pip install pydub` → extract metadata

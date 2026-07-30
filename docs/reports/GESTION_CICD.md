@@ -1,129 +1,199 @@
 # Gestion du Workflow CI/CD — ClickMart
 
-> **Date** : 2026-07-29
-> **Version** : 2.0
-> **Fichier** : `.github/workflows/automate.yml`
+> **Date** : 2026-07-30
+> **Version** : 3.0
+> **Fichier** : `.github/workflows/ci-cd.yml` (renommé depuis `automate.yml`)
+> **Debug** : [2026-07-30_CI-CD_bugs.md](../debug/2026-07-30_CI-CD_bugs.md)
 
 ---
 
-## Architecture du pipeline
+## Architecture du pipeline (v3)
 
 ```
 git push main|stg|dev
         │
         ▼
-┌─────────────────────────────────────────────┐
-│              GitHub Actions                   │
-│                                               │
-│  ┌──────────┐  ┌───────────┐                 │
-│  │test-backend│  │test-frontend│  (parallèle) │
-│  │ 67 tests  │  │ 11 tests   │               │
-│  └────┬─────┘  └─────┬─────┘                 │
-│       └──────┬───────┘                        │
-│              ▼                                │
-│  ┌──────────────────────┐                    │
-│  │   build-and-push     │  (main/stg only)   │
-│  │   ghcr.io registry   │                    │
-│  └──────────┬───────────┘                    │
-│             ▼                                │
-│  ┌──────────────────────┐                    │
-│  │  deploy-production   │  (main only)       │
-│  │  deploy-staging      │  (stg only)        │
-│  │  Linode pull + run   │                    │
-│  └──────────────────────┘                    │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                        GitHub Actions                             │
+│                                                                    │
+│  ┌────────────┐      ┌──────────────┐                             │
+│  │backend-lint│      │frontend-lint │  (parallèle)                │
+│  │  ruff      │      │  eslint      │                             │
+│  └─────┬──────┘      └──────┬───────┘                             │
+│        ▼                    ▼                                      │
+│  ┌────────────┐      ┌──────────────┐                             │
+│  │backend-test│      │frontend-test │  (parallèle)                │
+│  │ 67 tests   │      │ 11 tests     │                             │
+│  └─────┬──────┘      └──────┬───────┘                             │
+│        │                    ▼                                      │
+│        │             ┌──────────────┐                              │
+│        │             │frontend-build│                              │
+│        │             └──────┬───────┘                              │
+│        └──────────┬─────────┘                                      │
+│                   ▼                                                │
+│  ┌──────────────────────────────────┐                             │
+│  │        build-and-push            │  (main/stg only)            │
+│  │   backend → ghcr.io              │                             │
+│  │   frontend → ghcr.io             │                             │
+│  └────────────────┬─────────────────┘                             │
+│                   ▼                                                │
+│  ┌──────────────────────────────────┐                             │
+│  │  deploy-production  (main only)  │                             │
+│  │  deploy-staging     (stg only)   │                             │
+│  │  appleboy/ssh-action             │                             │
+│  │  → git reset --hard              │                             │
+│  │  → deploy-app.sh                 │                             │
+│  └──────────────────────────────────┘                             │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-| Branche | Tests | Build & Push | Déploiement |
-|---|---|---|---|
-| `dev` | ✅ | ❌ | ❌ |
-| `stg` | ✅ | ✅ | ✅ Staging (:8080) |
-| `main` | ✅ | ✅ | ✅ Production (:80/443) |
+| Branche | Lint | Test | Build CI | Build & Push | Déploiement |
+|---|---|---|---|---|---|
+| `dev` | ✅ | ✅ | ✅ | ❌ | ❌ |
+| `stg` | ✅ | ✅ | ✅ | ✅ | ✅ Staging (`:8080`) |
+| `main` | ✅ | ✅ | ✅ | ✅ | ✅ Production (`:80/443`) |
 
 ---
 
 ## Jobs détaillés
 
-### test-backend
+### `backend-lint` (ruff)
 
 ```yaml
 runs-on: ubuntu-latest
+defaults: { working-directory: backend }
+steps:
+  - checkout
+  - setup-python 3.11 (cache pip)
+  - pip install -r requirements.txt + ruff
+  - ruff check . --ignore F401,E501,E402,B017,BLE001,I001,RUF012,RUF100,S110
+```
+
+**Règles ignorées** : violations préexistantes (131 erreurs), ajoutées progressivement. Dette à purger dans une PR dédiée.
+
+### `backend-test` (Django)
+
+```yaml
+needs: backend-lint
+runs-on: ubuntu-latest
+defaults: { working-directory: backend }
 steps:
   - checkout
   - setup-python 3.11 (cache pip)
   - pip install -r requirements.txt
-  - ruff check (lint)
-  - python manage.py test (67 tests)
-env:
-  SECRET_KEY: ci-test-secret-key
-  DEBUG: True
-  DATABASE_URL: (vide → SQLite)
+  - python manage.py test --verbosity=2  # 67 tests, SQLite
 ```
 
-**Base de données** : SQLite (pas de PostgreSQL en CI). `DATABASE_URL` vide → `dj_database_url` fallback automatique.
-
-### test-frontend
+### `frontend-lint` (eslint)
 
 ```yaml
 runs-on: ubuntu-latest
+defaults: { working-directory: frontend }
 steps:
   - checkout
   - setup-node 20 (cache npm)
   - npm ci
-  - npm run lint (eslint)
-  - npx vitest run (11 tests)
-  - npm run build (vérification build)
+  - npm run lint
 ```
 
-### build-and-push
+### `frontend-test` (vitest)
 
 ```yaml
-needs: [test-backend, test-frontend]
-if: push sur main ou stg
-permissions:
-  packages: write
+needs: frontend-lint
+runs-on: ubuntu-latest
+defaults: { working-directory: frontend }
+steps:
+  - checkout
+  - setup-node 20 (cache npm)
+  - npm ci
+  - npx vitest run --config vite.config.js  # 11 tests
+```
 
+### `frontend-build` (vite)
+
+```yaml
+needs: frontend-test
+runs-on: ubuntu-latest
+defaults: { working-directory: frontend }
+steps:
+  - checkout
+  - setup-node 20 (cache npm)
+  - npm ci
+  - npm run build
+env:
+  VITE_SERVER_BASE_URL: /api/v1
+```
+
+### `build-and-push` (Docker + ghcr.io)
+
+```yaml
+needs: [backend-test, frontend-build]
+if: push sur main ou stg
+permissions: { packages: write }
 steps:
   - docker/login-action (ghcr.io, GITHUB_TOKEN)
-  - docker/build-push-action (backend)
-  - docker/build-push-action (frontend)
+  - docker/build-push-action (backend, cache type=gha)
+  - docker/build-push-action (frontend, cache type=gha)
 ```
 
-| Image | Tag | Taille | Utilisé par |
-|---|---|---|---|
-| `ghcr.io/tawounfouet/clickmart-backend:latest` | `latest` | ~668 MB | backend, celery-worker, celery-beat |
-| `ghcr.io/tawounfouet/clickmart-frontend:latest` | `latest` | ~26 MB | frontend |
+| Image | Tag | Utilisé par |
+|---|---|---|
+| `ghcr.io/tawounfouet/clickmart-backend:latest` | `latest` | backend, celery-worker, celery-beat |
+| `ghcr.io/tawounfouet/clickmart-frontend:latest` | `latest` | frontend |
 
-**Cache** : `type=gha` (GitHub Actions cache, 10 GB). `mode=max` exporte toutes les couches.
-
-### deploy-production
+### `deploy-production` (main)
 
 ```yaml
 needs: [build-and-push]
-if: push sur main
+if: github.ref == 'refs/heads/main'
 steps:
-  - Deploy to Linode (appleboy/ssh-action)
+  - appleboy/ssh-action@v1.0.3
     script: |
-      git pull origin main
-      docker compose pull           ← pull depuis ghcr.io
-      docker compose up -d          ← recreate si image changée
-      docker compose exec nginx nginx -s reload  ← config volume
-      curl healthcheck
+      cd /opt/clickmart && git reset --hard origin/main
+      bash infra/scripts/deploy-app.sh production main <github.actor> <GITHUB_TOKEN>
 ```
 
-### deploy-staging
+### `deploy-staging` (stg)
 
 ```yaml
 needs: [build-and-push]
-if: push sur stg
+if: github.ref == 'refs/heads/stg'
 steps:
-  - Deploy to Linode (appleboy/ssh-action)
+  - appleboy/ssh-action@v1.0.3
     script: |
-      git pull origin stg
-      docker compose -p clickmart-stg pull
-      docker compose -p clickmart-stg up -d
-      curl http://localhost:8080 healthcheck
+      cd /opt/clickmart-stg && git reset --hard origin/stg
+      bash infra/scripts/deploy-app.sh staging stg
 ```
+
+---
+
+## Script de déploiement externalisé
+
+> Fichier : `infra/scripts/deploy-app.sh`
+
+```
+Usage: deploy-app.sh <staging|production> <branch> [gh_user] [gh_token]
+
+Étapes :
+  1. cd /opt/clickmart[-stg] && git fetch && git reset --hard
+  2. docker login ghcr.io (production uniquement)
+  3. docker compose pull + docker compose up -d
+  4. nginx reload (production uniquement)
+  5. sleep 15 + docker compose ps
+  6. Health checks :
+     - Frontend : curl http://localhost/ (200|301|302)
+     - API      : curl http://localhost/api/v1/products/ (200|301|302)
+     - Swap     : swapon --show | grep swapfile (warning, non bloquant)
+```
+
+### Avantages vs inline script
+
+| Critère | Avant (inline) | Après (deploy-app.sh) |
+|---|---|---|
+| Maintenabilité | Duplication staging/prod dans le YAML | Logique unique |
+| Testabilité | Impossible en local | `ssh deploy@host "bash infra/scripts/deploy-app.sh ..."` |
+| Visibilité | Dissimulé dans le workflow | Fichier versionné, lisible, commenté |
+| Health checks | 1 curl basique | 3 checks (frontend + API + swap) avec ✅/❌ |
 
 ---
 
@@ -149,35 +219,22 @@ Avantages :
 - Linode fait uniquement `docker pull` (~3s) + `docker up -d` (~5s)
 - Zéro build sur le VPS → zéro risque OOM
 
-### Base — builds locaux (dev)
-
-```yaml
-# docker-compose.yml
-services:
-  backend:
-    build: ./backend      # dev local uniquement
-  celery-worker:
-    build: ./backend
-  frontend:
-    build: ./frontend
-```
-
 ---
 
 ## Secrets GitHub
 
 | Secret | Usage |
 |---|---|
-| `LINODE_HOST` | IP du VPS |
+| `LINODE_HOST` | IP du VPS (172.239.20.14) |
 | `LINODE_USER` | `deploy` |
-| `LINODE_SSH_KEY` | Clé privée SSH |
-| `GITHUB_TOKEN` | Automatique — push vers ghcr.io |
+| `LINODE_SSH_KEY` | Clé privée ED25519 (mise à jour 30/07 après reprovisionnement Ansible) |
+| `GITHUB_TOKEN` | Automatique — push vers ghcr.io + docker login |
 
 ---
 
 ## Optimisations
 
-### Dockerfile
+### Dockerfile — ordre des layers
 
 ```dockerfile
 # Ordre optimal : layers stables en premier
@@ -190,8 +247,8 @@ COPY . .                            ← rebuild (code change)
 ### Cache GitHub Actions
 
 ```yaml
-cache-from: type=gha    # restaure les layers du cache
-cache-to: type=gha,mode=max  # sauve toutes les couches
+cache-from: type=gha       # restaure les layers du cache
+cache-to: type=gha,mode=max # sauve toutes les couches
 ```
 
 ### Nginx — DNS re-resolution
@@ -204,26 +261,34 @@ location /api/ {
 }
 ```
 
-Sans variable, Nginx résout `backend` une fois au démarrage. Après recreate du conteneur backend (nouvelle IP), Nginx garde l'ancienne → 502. Avec variable + resolver, re-résolution toutes les 30s.
-
 ### Reload nginx après deploy
 
 ```bash
 docker compose exec nginx nginx -s reload
 ```
 
-Le fichier `prod.conf` est monté en volume. Quand `git pull` met à jour le fichier, nginx doit être rechargé pour prendre en compte les changements.
+---
+
+## Évolution du pipeline
+
+| Version | Date | Changements |
+|---|---|---|
+| 1.0 | 2026-07-28 | Pipeline initial : `test-backend` + `test-frontend` + `build-and-push` + `deploy` |
+| 2.0 | 2026-07-29 | Git reset --hard, health checks curl, cache gha, nginx reload |
+| 3.0 | 2026-07-30 | **Split lint/test/build** (6 jobs), **deploy-app.sh externalisé**, **health checks enrichis**, lint strict, `working-directory` defaults, `automate.yml` → `ci-cd.yml` |
 
 ---
 
 ## Performances
 
-| Métrique | Avant (build local) | Après (build GitHub) |
+| Métrique | v2 (avant) | v3 (après) |
 |---|---|---|
-| Temps de déploiement | 3-5 min | ~20s |
-| RAM utilisée pendant le déploiement | ~1 000 MB (OOM fréquent) | ~768 MB (stable) |
-| Images construites par déploiement | 4 (backend ×3 + frontend) | 0 (pull only) |
-| Cache pip install | Non (pas de cache Docker) | Oui (type=gha) |
+| Jobs CI | 2 (test-backend + test-frontend) | 5 (lint×2 + test×2 + build) |
+| Parallélisme | backend ↔ frontend | lint↔lint, test↔test, build isolé |
+| Feedback lint | Après tests (~60s) | ~15s (avant les tests) |
+| Temps de déploiement | ~20s | ~20s (inchangé) |
+| Script de déploiement | Inline dans le YAML | Externalisé `deploy-app.sh` |
+| Health checks | 1 curl basique | 3 checks structurés (frontend + API + swap) |
 
 ---
 
@@ -231,14 +296,33 @@ Le fichier `prod.conf` est monté en volume. Quand `git pull` met à jour le fic
 
 ```bash
 # Voir les runs récents
-gh run list --repo tawounfouet/yt_django-clickmart-devops
+gh run list --workflow ci-cd.yml --limit 5
 
-# Voir les logs d'un job
-gh run view <run_id> --log --job build-and-push
+# Voir le statut de tous les jobs d'un run
+gh run view <run_id> --json jobs --jq '.jobs[] | "\(.name): \(.conclusion)"'
 
-# Voir les packages
-gh api /users/tawounfouet/packages/container/clickmart-backend/versions
+# Voir les logs d'un job spécifique
+gh run view <run_id> --log --job <job_id>
+
+# Voir les logs avec filtre
+gh run view <run_id> --log --job <job_id> | grep -i 'error\|fail'
+
+# Re-run un workflow échoué
+gh run rerun <run_id>
 
 # Déclencher manuellement
 git commit --allow-empty -m "trigger ci" && git push
+
+# Déployer manuellement depuis le serveur
+ssh deploy@172.239.20.14
+bash /opt/clickmart/infra/scripts/deploy-app.sh production main <user> <token>
 ```
+
+---
+
+## Voir aussi
+
+- [Debug CI/CD — 8 bugs documentés](../debug/2026-07-30_CI-CD_bugs.md)
+- [Documentation Ansible](../../docs/infra/ansible/)
+- [Déploiement Linode](../deploy/DEPLOIEMENT_LINODE.md)
+- [Guide CI/CD (historique)](../deploy/GUIDE_CICD.md)

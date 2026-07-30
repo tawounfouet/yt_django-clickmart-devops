@@ -12,22 +12,53 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta
-from decouple import config
+import environ
+
+env = environ.Env()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load .env files (base first, then platform-specific override)
+env_file = BASE_DIR / ".env"
+if env_file.exists():
+    environ.Env.read_env(env_file)
+
+# Determine which override to load
+_environment = env("ENVIRONMENT", default="development")
+
+_override_files = {
+    "production": BASE_DIR / ".envs" / ".prod",
+    "staging": BASE_DIR / ".envs" / ".staging",
+}
+_override_file = _override_files.get(_environment, BASE_DIR / ".envs" / ".local")
+if _override_file.exists():
+    environ.Env.read_env(_override_file)
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY')
+SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = env.bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
+# ── Sentry ────────────────────────────────────────────
+SENTRY_DSN = env('SENTRY_DSN', default='')
+
+if SENTRY_DSN and not DEBUG:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        traces_sample_rate=0.1,
+        send_default_pii=False,
+    )
+
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
 
 # Application definition
 
@@ -87,21 +118,9 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-import dj_database_url
-
-DATABASE_URL = config('DATABASE_URL', default='')
-
-if DATABASE_URL:
-    DATABASES = {
-        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
-    }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+DATABASES = {
+    'default': env.db('DATABASE_URL', default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
+}
 
 
 # Password validation
@@ -148,22 +167,22 @@ STATICFILES_DIRS = [
 # Media files (user uploads) — configurable backend
 # https://docs.djangoproject.com/en/5.2/topics/files/
 
-MEDIA_STORAGE_BACKEND = config('MEDIA_STORAGE_BACKEND', default='local')
+MEDIA_STORAGE_BACKEND = env('MEDIA_STORAGE_BACKEND', default='local')
 
 if MEDIA_STORAGE_BACKEND == 's3':
     INSTALLED_APPS += ['storages']
 
-    AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
-    AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
-    AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
-    AWS_S3_ENDPOINT_URL = config('AWS_S3_ENDPOINT_URL', default=None)
-    AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='us-east-1')
+    AWS_ACCESS_KEY_ID = env('AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = env('AWS_SECRET_ACCESS_KEY')
+    AWS_STORAGE_BUCKET_NAME = env('AWS_STORAGE_BUCKET_NAME')
+    AWS_S3_ENDPOINT_URL = env('AWS_S3_ENDPOINT_URL', default=None)
+    AWS_S3_REGION_NAME = env('AWS_S3_REGION_NAME', default='us-east-1')
     AWS_S3_FILE_OVERWRITE = False
     AWS_DEFAULT_ACL = 'public-read'
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
     AWS_LOCATION = 'clickmart'
     AWS_S3_SIGNATURE_VERSION = 's3v4'
-    AWS_S3_ADDRESSING_STYLE = config('AWS_S3_ADDRESSING_STYLE', default='virtual')
+    AWS_S3_ADDRESSING_STYLE = env('AWS_S3_ADDRESSING_STYLE', default='virtual')
 
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/media/' if AWS_S3_ENDPOINT_URL else f'https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/media/'
@@ -172,12 +191,12 @@ elif MEDIA_STORAGE_BACKEND == 'cloudinary':
     INSTALLED_APPS += ['cloudinary_storage', 'cloudinary']
 
     CLOUDINARY_STORAGE = {
-        'CLOUD_NAME': config('CLOUDINARY_CLOUD_NAME'),
-        'API_KEY': config('CLOUDINARY_API_KEY'),
-        'API_SECRET': config('CLOUDINARY_API_SECRET'),
+        'CLOUD_NAME': env('CLOUDINARY_CLOUD_NAME'),
+        'API_KEY': env('CLOUDINARY_API_KEY'),
+        'API_SECRET': env('CLOUDINARY_API_SECRET'),
     }
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-    MEDIA_URL = f'https://res.cloudinary.com/{config("CLOUDINARY_CLOUD_NAME")}/'
+    MEDIA_URL = f'https://res.cloudinary.com/{env("CLOUDINARY_CLOUD_NAME")}/'
 
 else:
     MEDIA_URL = "/uploads/"
@@ -211,27 +230,27 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7)
 }
 
-EMAIL_BACKEND_TYPE = config('EMAIL_BACKEND_TYPE', default='console')
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@clickmart.local')
-ADMIN_EMAIL = config('ADMIN_EMAIL', default='admin@clickmart.local')
+EMAIL_BACKEND_TYPE = env('EMAIL_BACKEND_TYPE', default='console')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@clickmart.local')
+ADMIN_EMAIL = env('ADMIN_EMAIL', default='admin@clickmart.local')
 
 if EMAIL_BACKEND_TYPE == 'resend':
     EMAIL_BACKEND = 'core.mail.ResendEmailBackend'
-    RESEND_API_KEY = config('RESEND_API_KEY')
+    RESEND_API_KEY = env('RESEND_API_KEY')
 elif EMAIL_BACKEND_TYPE == 'smtp':
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
     EMAIL_HOST = 'smtp.gmail.com'
     EMAIL_PORT = 587
     EMAIL_USE_TLS = True
-    EMAIL_HOST_USER = config('EMAIL_HOST_USER')
-    EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+    EMAIL_HOST_USER = env('EMAIL_HOST_USER')
+    EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-CORS_ALLOWED_ORIGINS = config(
+CORS_ALLOWED_ORIGINS = env.list(
     'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:5173'
-).split(',')
+    default=['http://localhost:5173']
+)
 
 X_FRAME_OPTIONS = 'DENY'
 SECURE_CONTENT_TYPE_NOSNIFF = True
@@ -240,13 +259,13 @@ CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
-ENVIRONMENT = config('ENVIRONMENT', default='development')
+ENVIRONMENT = _environment  # already read above
 
 SECURE_SSL_REDIRECT = not DEBUG and ENVIRONMENT == 'production'
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default='redis://localhost:6379/1')
+CELERY_BROKER_URL = env('CELERY_BROKER_URL', default='redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default='redis://localhost:6379/1')
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -278,7 +297,7 @@ LOGGING = {
     },
     'root': {
         'handlers': ['console'],
-        'level': config('LOG_LEVEL', default='INFO'),
+        'level': env('LOG_LEVEL', default='INFO'),
     },
     'loggers': {
         'django': {

@@ -1,0 +1,150 @@
+---
+- name: Remove any existing Docker repo files (avoid signed-by conflict later)
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/sources.list.d/docker.list
+    - /etc/apt/sources.list.d/download_docker_com_linux_ubuntu.list
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install prerequisites
+  apt:
+    name:
+      - ca-certificates
+      - curl
+      - git
+      - ufw
+    state: present
+
+- name: Create keyrings directory
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: 0755
+
+- name: Download Docker GPG key to keyring
+  get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: 0644
+
+- name: Add Docker repository (with signed-by)
+  apt_repository:
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_facts.distribution_release }} stable"
+    state: present
+    update_cache: yes
+    filename: docker
+
+- name: Install Docker packages
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+
+- name: Start and enable Docker
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Create deploy user
+  user:
+    name: deploy
+    groups: docker
+    shell: /bin/bash
+    create_home: yes
+    state: present
+
+- name: Add SSH public key for deploy user
+  authorized_key:
+    user: deploy
+    key: "{{ lookup('file', lookup('env','HOME') + '/.ssh/id_ed25519.pub') }}"
+    state: present
+
+- name: Add passwordless sudo for deploy user
+  copy:
+    dest: /etc/sudoers.d/deploy
+    content: "deploy ALL=(ALL) NOPASSWD:ALL\n"
+    mode: 0440
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Log in to GitHub Container Registry
+  community.docker.docker_login:
+    registry_url: https://ghcr.io
+    username: "{{ github_user }}"
+    password: "{{ github_token }}"
+    reauthorize: yes
+  become_user: deploy
+  no_log: yes
+
+- name: Configure UFW - allow SSH
+  ufw:
+    rule: allow
+    port: 22
+    proto: tcp
+
+- name: Configure UFW - allow HTTP
+  ufw:
+    rule: allow
+    port: 80
+    proto: tcp
+
+- name: Configure UFW - allow HTTPS
+  ufw:
+    rule: allow
+    port: 443
+    proto: tcp
+
+- name: Enable UFW (outgoing allow only)
+  ufw:
+    state: enabled
+    policy: allow
+    direction: outgoing
+
+- name: Install fail2ban
+  apt:
+    name: fail2ban
+    state: present
+
+- name: Configure fail2ban SSH jail
+  copy:
+    dest: /etc/fail2ban/jail.local
+    content: |
+      [sshd]
+      enabled = true
+      port = ssh
+      filter = sshd
+      logpath = /var/log/auth.log
+      maxretry = 3
+      bantime = 3600
+    mode: 0644
+
+- name: Enable fail2ban
+  service:
+    name: fail2ban
+    state: started
+    enabled: yes
+
+- name: Verify installations
+  command: "{{ item }}"
+  changed_when: no
+  register: version_check
+  loop:
+    - docker --version
+    - docker compose version
+    - git --version
+
+- name: Show versions
+  debug:
+    msg:
+      - "Docker: {{ version_check.results[0].stdout }}"
+      - "Compose: {{ version_check.results[1].stdout }}"
+      - "Git: {{ version_check.results[2].stdout }}"

@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from products.models import Product
-
+import uuid
 
 User = get_user_model()
 
@@ -12,6 +12,7 @@ class Order(models.Model):
         ('CONFIRMED', 'Confirmed'),
         ('DELIVERED', 'Delivered')
     ]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)
     tax_amount = models.DecimalField(max_digits=10, decimal_places=2)
@@ -26,9 +27,10 @@ class Order(models.Model):
 
     def __str__(self):
         return f"Order #{self.id} - {self.user.email}"
-    
+
 
 class OrderItem(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField()

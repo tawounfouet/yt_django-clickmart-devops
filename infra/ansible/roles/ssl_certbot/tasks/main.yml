@@ -1,0 +1,100 @@
+---
+- name: Verify DNS resolves to this server
+  command: "dig +short {{ domain }}"
+  delegate_to: localhost
+  become: no
+  register: dns_result
+  changed_when: no
+  failed_when: dns_result.stdout != ansible_facts.default_ipv4.address
+
+- name: Check if certificates already exist
+  stat:
+    path: /opt/clickmart/infra/certbot/conf/live/{{ domain }}/fullchain.pem
+  register: cert_file
+
+- name: Deploy HTTP-only nginx config for certbot bootstrap
+  template:
+    src: prod.bootstrap.conf.j2
+    dest: /opt/clickmart/infra/nginx/prod.conf
+    owner: deploy
+    group: deploy
+    mode: 0644
+  when: not cert_file.stat.exists
+
+- name: Ensure certbot webroot directory exists
+  file:
+    path: /opt/clickmart/infra/certbot/www
+    state: directory
+    mode: 0755
+  when: not cert_file.stat.exists
+
+- name: Start nginx with bootstrap config
+  community.docker.docker_compose_v2:
+    project_src: /opt/clickmart
+    files:
+      - docker-compose.yml
+      - docker-compose.prod.yml
+    services:
+      - nginx
+    state: present
+    pull: never
+  become_user: deploy
+  when: not cert_file.stat.exists
+
+- name: Wait for nginx to serve HTTP
+  uri:
+    url: "http://{{ domain }}/"
+    status_code: 200
+  register: nginx_ready
+  retries: 10
+  delay: 3
+  until: nginx_ready.status == 200
+  when: not cert_file.stat.exists
+
+- name: Obtain Let's Encrypt certificate
+  community.docker.docker_container:
+    name: certbot-tmp
+    image: certbot/certbot
+    network_mode: host
+    command: >
+      certonly --webroot -w /var/www/certbot
+      -d {{ domain }} -d www.{{ domain }}
+      --email {{ admin_email }}
+      --agree-tos --no-eff-email
+    volumes:
+      - /opt/clickmart/infra/certbot/conf:/etc/letsencrypt
+      - /opt/clickmart/infra/certbot/www:/var/www/certbot
+    state: started
+    cleanup: yes
+    detach: no
+  when: not cert_file.stat.exists
+  register: cert_result
+
+- name: Restore HTTPS nginx config from git
+  command: git -C /opt/clickmart checkout -- infra/nginx/prod.conf
+  become_user: deploy
+  when: cert_file.stat.exists or cert_result is succeeded
+
+- name: Restart nginx with HTTPS config
+  community.docker.docker_compose_v2:
+    project_src: /opt/clickmart
+    files:
+      - docker-compose.yml
+      - docker-compose.prod.yml
+    services:
+      - nginx
+    state: restarted
+  become_user: deploy
+  when: cert_file.stat.exists or cert_result is succeeded
+
+- name: Ensure certbot renewal service is running
+  community.docker.docker_compose_v2:
+    project_src: /opt/clickmart
+    files:
+      - docker-compose.yml
+      - docker-compose.prod.yml
+    services:
+      - certbot
+    state: present
+  become_user: deploy
+  when: cert_file.stat.exists or cert_result is succeeded
