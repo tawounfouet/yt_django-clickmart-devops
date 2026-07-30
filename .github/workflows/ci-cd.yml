@@ -29,7 +29,7 @@ jobs:
           pip install -r requirements.txt
           pip install ruff coverage
       - name: Lint with ruff
-        run: ruff check . --ignore F401,E501,E402,B017,BLE001,DEP004,DEP016,F202,FURB157,I001,RUF012,RUF100,S110
+        run: ruff check . --ignore F401,E501,E402,B017,BLE001,I001,RUF012,RUF100,S110
       - name: Run tests
         env:
           SECRET_KEY: ci-test-secret-key-not-for-prod
