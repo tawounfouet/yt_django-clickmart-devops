@@ -163,27 +163,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup SSH
-        env:
-          LINODE_HOST: ${{ secrets.LINODE_HOST }}
-          LINODE_USER: ${{ secrets.LINODE_USER }}
+      - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.LINODE_SSH_KEY }}" > ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.LINODE_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          cat >> ~/.ssh/config << EOF
-          Host clickmart-server
-            HostName $LINODE_HOST
-            User $LINODE_USER
-            IdentityFile ~/.ssh/deploy_key
-            StrictHostKeyChecking accept-new
-          EOF
 
       - name: Copy deploy script
-        run: scp infra/scripts/deploy-app.sh clickmart-server:/tmp/deploy-app.sh
+        run: scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new infra/scripts/deploy-app.sh ${{ secrets.LINODE_USER }}@${{ secrets.LINODE_HOST }}:/tmp/deploy-app.sh
 
       - name: Deploy
-        run: ssh clickmart-server "bash /tmp/deploy-app.sh staging stg"
+        run: ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new ${{ secrets.LINODE_USER }}@${{ secrets.LINODE_HOST }} "bash /tmp/deploy-app.sh staging stg"
 
   deploy-production:
     name: Deploy — Production
@@ -193,25 +183,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup SSH
-        env:
-          LINODE_HOST: ${{ secrets.LINODE_HOST }}
-          LINODE_USER: ${{ secrets.LINODE_USER }}
+      - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.LINODE_SSH_KEY }}" > ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.LINODE_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          cat >> ~/.ssh/config << EOF
-          Host clickmart-server
-            HostName $LINODE_HOST
-            User $LINODE_USER
-            IdentityFile ~/.ssh/deploy_key
-            StrictHostKeyChecking accept-new
-          EOF
 
       - name: Copy deploy script
-        run: scp infra/scripts/deploy-app.sh clickmart-server:/tmp/deploy-app.sh
+        run: scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new infra/scripts/deploy-app.sh ${{ secrets.LINODE_USER }}@${{ secrets.LINODE_HOST }}:/tmp/deploy-app.sh
 
       - name: Deploy
         run: |
-          ssh clickmart-server "bash /tmp/deploy-app.sh production main '${{ github.actor }}' '${{ secrets.GITHUB_TOKEN }}'"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new ${{ secrets.LINODE_USER }}@${{ secrets.LINODE_HOST }} "bash /tmp/deploy-app.sh production main '${{ github.actor }}' '${{ secrets.GITHUB_TOKEN }}'"
