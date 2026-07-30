@@ -11,12 +11,20 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
+        migrations.RemoveField(
+            model_name='order',
+            name='id',
+        ),
+        migrations.AddField(
             model_name='order',
             name='id',
             field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False),
         ),
-        migrations.AlterField(
+        migrations.RemoveField(
+            model_name='orderitem',
+            name='id',
+        ),
+        migrations.AddField(
             model_name='orderitem',
             name='id',
             field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False),
