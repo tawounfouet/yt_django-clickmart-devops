@@ -1,6 +1,7 @@
+import os
+
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
-from decouple import config
 
 User = get_user_model()
 
@@ -9,8 +10,8 @@ class Command(BaseCommand):
     help = "Create default superuser from .env (ADMIN_EMAIL, ADMIN_PASSWORD)"
 
     def handle(self, *args, **options):
-        email = config('ADMIN_EMAIL', default='admin@clickmart.local')
-        password = config('ADMIN_PASSWORD', default='admin123')
+        email = os.environ.get('ADMIN_EMAIL', 'admin@clickmart.local')
+        password = os.environ.get('ADMIN_PASSWORD', 'admin123')
 
         if User.objects.filter(email=email).exists():
             user = User.objects.get(email=email)
