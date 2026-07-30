@@ -162,18 +162,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.LINODE_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-
-      - name: Copy deploy script
-        run: scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new infra/scripts/deploy-app.sh ${{ secrets.LINODE_USER }}@${{ secrets.LINODE_HOST }}:/tmp/deploy-app.sh
-
       - name: Deploy
-        run: ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new ${{ secrets.LINODE_USER }}@${{ secrets.LINODE_HOST }} "bash /tmp/deploy-app.sh staging stg"
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.LINODE_HOST }}
+          username: ${{ secrets.LINODE_USER }}
+          key: ${{ secrets.LINODE_SSH_KEY }}
+          script: |
+            cd /opt/clickmart-stg && git fetch origin stg && git reset --hard origin/stg
+            bash /opt/clickmart-stg/infra/scripts/deploy-app.sh staging stg
 
   deploy-production:
     name: Deploy — Production
@@ -182,16 +179,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.LINODE_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-
-      - name: Copy deploy script
-        run: scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new infra/scripts/deploy-app.sh ${{ secrets.LINODE_USER }}@${{ secrets.LINODE_HOST }}:/tmp/deploy-app.sh
-
       - name: Deploy
-        run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new ${{ secrets.LINODE_USER }}@${{ secrets.LINODE_HOST }} "bash /tmp/deploy-app.sh production main '${{ github.actor }}' '${{ secrets.GITHUB_TOKEN }}'"
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.LINODE_HOST }}
+          username: ${{ secrets.LINODE_USER }}
+          key: ${{ secrets.LINODE_SSH_KEY }}
+          script: |
+            cd /opt/clickmart && git fetch origin main && git reset --hard origin/main
+            bash /opt/clickmart/infra/scripts/deploy-app.sh production main '${{ github.actor }}' '${{ secrets.GITHUB_TOKEN }}'
