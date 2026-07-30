@@ -57,7 +57,7 @@ jobs:
           EMAIL_HOST_PASSWORD: test
           ALLOWED_HOSTS: localhost
           CORS_ALLOWED_ORIGINS: http://localhost:5173
-        run: python manage.py test --verbosity=2
+        run: python -m pytest -q
 
   # ── Frontend ─────────────────────────────────────────
   frontend-lint:
