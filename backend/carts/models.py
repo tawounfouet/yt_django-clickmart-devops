@@ -25,7 +25,7 @@ class Cart(models.Model):
     def tax_amount(self):
         tax = Decimal("0.00")
         for item in self.items.all():
-            tax = tax + item.product.price * item.quantity * Decimal(item.product.tax_percent) / Decimal("100")
+            tax = tax + item.product.price * item.quantity * Decimal(item.product.tax_percent) / Decimal(100)
         return tax
     
     @property
