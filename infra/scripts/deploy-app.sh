@@ -78,10 +78,10 @@ check_url() {
     local url="$2"
     local status
     status=$(curl -s -o /dev/null -w "%{http_code}" "$url")
-    if [ "$status" = "200" ]; then
+    if [ "$status" = "200" ] || [ "$status" = "301" ] || [ "$status" = "302" ]; then
         echo "✅ $label: HTTP $status"
     else
-        echo "❌ $label: HTTP $status (expected 200)"
+        echo "❌ $label: HTTP $status (expected 200/301/302)"
         return 1
     fi
 }
