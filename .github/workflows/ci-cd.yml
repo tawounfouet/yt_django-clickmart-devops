@@ -14,6 +14,9 @@ env:
 jobs:
   test-backend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -23,11 +26,10 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - name: Install dependencies
         run: |
-          cd backend
           pip install -r requirements.txt
           pip install ruff coverage
       - name: Lint with ruff
-        run: cd backend && ruff check . --ignore F401,E501,E402 || true
+        run: ruff check . --ignore F401,E501,E402
       - name: Run tests
         env:
           SECRET_KEY: ci-test-secret-key-not-for-prod
@@ -36,7 +38,7 @@ jobs:
           EMAIL_HOST_PASSWORD: test
           ALLOWED_HOSTS: localhost
           CORS_ALLOWED_ORIGINS: http://localhost:5173
-        run: cd backend && python manage.py test --verbosity=2
+        run: python manage.py test --verbosity=2
 
   test-frontend:
     runs-on: ubuntu-latest
@@ -49,7 +51,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
-      - run: npm run lint || true
+      - run: npm run lint
         working-directory: frontend
       - run: npx vitest run --config vite.config.js
         working-directory: frontend
@@ -105,22 +107,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy Staging to Linode
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.LINODE_HOST }}
-          username: ${{ secrets.LINODE_USER }}
-          key: ${{ secrets.LINODE_SSH_KEY }}
-          script: |
-            set -e
-            cd /opt/clickmart-stg
-            git fetch origin stg && git reset --hard origin/stg
-            docker compose -p clickmart-stg -f docker-compose.yml -f docker-compose.staging.yml pull
-            docker compose -p clickmart-stg -f docker-compose.yml -f docker-compose.staging.yml up -d
-            sleep 15
-            docker compose -p clickmart-stg ps
-            curl -sf http://localhost:8080/ || (echo "❌ Staging healthcheck failed" && exit 1)
-            echo "✅ Staging deployment successful"
+
+      - name: Setup SSH
+        env:
+          LINODE_HOST: ${{ secrets.LINODE_HOST }}
+          LINODE_USER: ${{ secrets.LINODE_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.LINODE_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          cat >> ~/.ssh/config << EOF
+          Host clickmart-server
+            HostName $LINODE_HOST
+            User $LINODE_USER
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking accept-new
+          EOF
+
+      - name: Copy deploy script
+        run: scp infra/scripts/deploy-app.sh clickmart-server:/tmp/deploy-app.sh
+
+      - name: Deploy
+        run: ssh clickmart-server "bash /tmp/deploy-app.sh staging stg"
 
   deploy-production:
     needs: [build-and-push]
@@ -128,22 +136,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy Production to Linode
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.LINODE_HOST }}
-          username: ${{ secrets.LINODE_USER }}
-          key: ${{ secrets.LINODE_SSH_KEY }}
-          script: |
-            set -e
-            cd /opt/clickmart
-            git fetch origin main && git reset --hard origin/main
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose -p clickmart -f docker-compose.yml -f docker-compose.prod.yml pull
-            docker compose -p clickmart -f docker-compose.yml -f docker-compose.prod.yml up -d
-            docker compose -p clickmart exec -T nginx nginx -s reload || true
-            sleep 15
-            docker compose -p clickmart ps
-            curl -sf http://localhost/api/v1/products/ || (echo "❌ Backend healthcheck failed" && exit 1)
-            curl -sf http://localhost/ || (echo "❌ Frontend healthcheck failed" && exit 1)
-            echo "✅ Production deployment successful"
+
+      - name: Setup SSH
+        env:
+          LINODE_HOST: ${{ secrets.LINODE_HOST }}
+          LINODE_USER: ${{ secrets.LINODE_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.LINODE_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          cat >> ~/.ssh/config << EOF
+          Host clickmart-server
+            HostName $LINODE_HOST
+            User $LINODE_USER
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking accept-new
+          EOF
+
+      - name: Copy deploy script
+        run: scp infra/scripts/deploy-app.sh clickmart-server:/tmp/deploy-app.sh
+
+      - name: Deploy
+        run: |
+          ssh clickmart-server "bash /tmp/deploy-app.sh production main '${{ github.actor }}' '${{ secrets.GITHUB_TOKEN }}'"
