@@ -44,6 +44,21 @@ git fetch origin "$BRANCH" && git reset --hard "origin/$BRANCH"
 echo "✅ Git updated to $(git rev-parse --short HEAD)"
 echo "::endgroup::"
 
+# ── Pre-deploy backup (production only) ────────────────
+if [ "$ENV" = "production" ]; then
+    echo "::group::Pre-deploy backup"
+    BACKUP_DIR="$APP_DIR/backups"
+    mkdir -p "$BACKUP_DIR"
+    if docker compose -p "$PROJECT_NAME" $COMPOSE_FILES ps db 2>/dev/null | grep -q "Up"; then
+        docker compose -p "$PROJECT_NAME" $COMPOSE_FILES exec -T db \
+            pg_dump -U postgres clickmart 2>/dev/null | gzip > "$BACKUP_DIR/pre_deploy_$(date +%Y%m%d_%H%M%S).sql.gz" \
+            && echo "✅ Backup OK" || echo "⚠️  Backup skipped (no db container)"
+    else
+        echo "⚠️  Backup skipped (external DB, use backup-db.sh for remote)"
+    fi
+    echo "::endgroup::"
+fi
+
 # ── Docker login (ghcr.io) ─────────────────────────────
 if [ -n "$GH_USER" ] && [ -n "$GH_TOKEN" ]; then
     echo "::group::Docker login ghcr.io"

@@ -42,7 +42,7 @@ clean:
 
 # ─── API ───
 api-test:
-	cd backend && python manage.py test --verbosity=2
+	cd backend && python -m pytest -q
 
 api-lint:
 	cd backend && ruff check . --ignore F401,E501,E402,B017,BLE001,I001,RUF012,RUF100,S110

@@ -32,6 +32,11 @@ jobs:
           pip install ruff
       - name: Lint
         run: ruff check . --ignore F401,E501,E402,B017,BLE001,I001,RUF012,RUF100,S110
+      - name: Forbidden imports
+        run: |
+          ! grep -rn "from decouple\|import decouple\|python-decouple" . --include="*.py" \
+            && echo "✅ No forbidden imports" \
+            || (echo "❌ Forbidden import found: python-decouple was removed, use django-environ or os.environ" && exit 1)
 
   backend-test:
     name: Backend — Test
