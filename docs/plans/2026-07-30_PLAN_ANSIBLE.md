@@ -1,6 +1,6 @@
 # Plan d'implémentation — Ansible : Configuration du serveur ClickMart
 
-> Basé sur l'analyse : `docs/analyse/ANALYSE_TERRAFORM_ANSIBLE.md` (Phase 2 uniquement)
+> Basé sur l'analyse : `docs/analyse/2026-07-29_ANALYSE_TERRAFORM_ANSIBLE.md` (Phase 2 uniquement)
 > **Périmètre** : Ansible uniquement — le provisionnement de l'infrastructure (VPS, DNS, firewall) est fait manuellement par l'utilisateur chez son fournisseur de choix
 
 ---
@@ -735,7 +735,7 @@ ansible-playbook deploy.yml -i inventory.yml --limit production
 
 ---
 
-*Plan créé le 30 juillet 2026 — basé sur docs/analyse/ANALYSE_TERRAFORM_ANSIBLE.md*
+*Plan créé le 30 juillet 2026 — basé sur docs/analyse/2026-07-29_ANALYSE_TERRAFORM_ANSIBLE.md*
 
 ---
 

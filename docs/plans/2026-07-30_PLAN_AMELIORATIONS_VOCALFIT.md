@@ -1,6 +1,6 @@
 # Plan d'implémentation — Améliorations VocalFit → ClickMart
 
-> Basé sur l'analyse : `docs/analyse/ANALYSE_VOCALFIT_CLICKMART.md`
+> Basé sur l'analyse : `docs/analyse/2026-07-30_ANALYSE_VOCALFIT_CLICKMART.md`
 > **Périmètre** : 13 patterns identifiés, 12 proposés à l'implémentation
 > **Dashboards** : `TODO.md` (dette technique), `docs/reports/GESTION_CICD.md` (CI/CD)
 

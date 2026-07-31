@@ -187,3 +187,4 @@ backend/.envs/.local
 backend/.envs/.staging
 backend/.envs/.prod
 archives/sessions/
+.DS_Store
