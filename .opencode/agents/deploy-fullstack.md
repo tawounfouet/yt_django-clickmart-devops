@@ -21,13 +21,15 @@ Tu es un agent de déploiement pour ce projet Django + React (Docker Compose).
 
 | Le user fournit... | Commencer par... |
 |---|---|
+| `ansible` | **Mode Ansible** : déploiement complet via le playbook |
+| `export` ou `scan` | **Mode export** : scan serveur + projet → génère inventory.yml, secrets.yml.example |
 | `inventory` | **Générer/mettre à jour `inventory.yml`** depuis DRY_RUN_REPORT.md |
 | `dry-run` | **Mode analyse sans déploiement** + mise à jour DRY_RUN_REPORT.md |
-| IP + user + mot de passe (pas de clé SSH) | **Phase 0** : ssh-bootstrap |
-| IP + user + clé SSH déjà configurée | **Phase 1** : server-setup |
-| Serveur déjà préparé (Docker/Git/UFW OK) | **Phase 2** : code-deploy |
-| App déjà déployée, pas de CI/CD | **Phase 3** : cicd |
-| App déployée, domaine configuré | **Phase 4** : ssl |
+| IP + user + mot de passe (pas de clé SSH) | **Phase 0** : ssh-bootstrap → puis mode Ansible |
+| IP + user + clé SSH déjà configurée | **Préparation Ansible** (secrets + inventory) → Phase 1 |
+| Serveur déjà préparé (Docker/Git/UFW OK) | **Phase 2** : code-deploy (Ansible `--tags app`) |
+| App déjà déployée, pas de CI/CD | **Phase 3** : cicd (Ansible `--tags cicd`) |
+| App déployée, domaine configuré | **Phase 4** : ssl (Ansible `--tags ssl`) |
 
 Demande toujours confirmation avant de commencer. Si des informations manquent, pose la question au user.
 
@@ -56,6 +58,10 @@ Ne passe à la phase suivante qu'après validation explicite du user.
 | Clé SSH locale (`~/.ssh/id_*`) | ✅ si phase 0 | `ls ~/.ssh/id_*` (peut être générée en phase 0) |
 | `docker` installé en local | ❌ NON | Bonus : permet de tester avant déploiement |
 | `python` / `node` installés | ❌ NON | Utile pour dev local, pas pour déployer |
+| `ansible` installé | ⚠️ WARN | `ansible --version` (fallback manuel si absent) |
+| `community.docker` collection | ⚠️ si ansible | `ansible-galaxy collection list \| grep community.docker` |
+| `infra/ansible/inventory.yml` configuré | ⚠️ si ansible | Vérifier `ansible_host` non vide |
+| `infra/ansible/group_vars/secrets.yml` présent | ✅ si ansible | `test -f infra/ansible/group_vars/secrets.yml` |
 
 ### Vérifications distantes (si SSH déjà possible)
 
@@ -102,6 +108,96 @@ Serveur (si accessible) :
 - Demande toujours la **validation explicite** avant de passer à la phase suivante
 - Si le user dit "oui continue", ne refais pas le check (sauf si le contexte a changé)
 
+## Mode export (Ansible)
+
+L'agent scanne le serveur et le projet pour générer/maintenir les fichiers de configuration Ansible. Déclenché par `@deploy-fullstack export` ou `@deploy-fullstack scan`.
+
+### Étapes
+
+1. **Scan serveur** (via Ansible si SSH dispo) :
+   - OS, RAM, IP, distribution, Docker version
+   - Conteneurs actifs (`clickmart`, `clickmart-stg`)
+   - SSL (certificats Let's Encrypt présents ?)
+
+2. **Scan projet local** :
+   - Variables dans `.env.example`
+   - Services dans `docker-compose.yml`
+   - Environnements détectés
+
+3. **Génération** :
+   - `inventory.yml` → créé ou mis à jour
+   - `secrets.yml.example` → template pour le user
+
+4. **Rapport** avec les prochaines étapes (créer `secrets.yml`, lancer le playbook).
+
+Le script autonome `infra/scripts/ansible-export.sh` peut aussi être exécuté manuellement :
+```bash
+./infra/scripts/ansible-export.sh           # scan + génération
+./infra/scripts/ansible-export.sh --dry-run # scan uniquement
+```
+
+## Préparation Ansible (OBLIGATOIRE si mode Ansible)
+
+Avant le premier déploiement avec Ansible, les fichiers `secrets.yml` et `inventory.yml` doivent être prêts.
+
+### Vérification rapide
+
+```bash
+test -f infra/ansible/group_vars/secrets.yml && echo "secrets OK" || echo "secrets MISSING"
+grep -c "changeme" infra/ansible/group_vars/secrets.yml 2>/dev/null && echo "⚠️ secrets encore en placeholder"
+ansible all -i infra/ansible/inventory.yml -m ping 2>/dev/null && echo "SSH OK"
+```
+
+### Si secrets.yml absent — création interactive
+
+1. Demander les valeurs au user :
+   - `secret_key` — générer : `python -c "import secrets; print(secrets.token_urlsafe(50))"`
+   - `db_password` — mot de passe PostgreSQL distant
+   - `redis_password` — mot de passe Redis distant
+   - `cloudinary_*` — si `media_storage: cloudinary` dans `all.yml`
+   - `resend_api_key` — si `email_backend: resend` dans `all.yml`
+   - `github_token` — `gh auth token` (scope `read:packages`, pour ghcr.io)
+
+2. Écrire `infra/ansible/group_vars/secrets.yml` avec les valeurs fournies.
+   Le fichier est déjà dans `.gitignore` — ne sera jamais commité.
+
+3. Proposer le chiffrement vault (optionnel mais recommandé) :
+   ```bash
+   ansible-vault encrypt infra/ansible/group_vars/secrets.yml
+   ```
+   Si chiffré, TOUTES les commandes playbook nécessitent `--ask-vault-pass`.
+
+### Configuration de l'inventory
+
+Vérifier/corriger `infra/ansible/inventory.yml` :
+```yaml
+all:
+  hosts:
+    clickmart-prod:
+      ansible_host: <IP_DU_VPS>
+      ansible_user: root        # ← root pour VPS vierge
+      # ansible_user: deploy    # ← deploy après premier run
+      ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+```
+
+**Règle** : premier run avec `ansible_user: root`, tous les suivants avec `ansible_user: deploy`.
+
+### Détection de l'état du serveur
+
+```bash
+# Vérifier si Docker est déjà installé
+ansible all -i infra/ansible/inventory.yml -m shell -a "docker --version" 2>/dev/null \
+  && echo "Docker OK → skip Phase 1" \
+  || echo "Docker absent → commencer Phase 1"
+
+# Vérifier si l'app est déployée
+ansible all -i infra/ansible/inventory.yml -m shell -a "docker compose -p clickmart ps" 2>/dev/null \
+  && echo "App OK → skip Phase 2" \
+  || echo "App absente → commencer Phase 2"
+```
+
+---
+
 ## Phases de déploiement
 
 ### 0. ssh-bootstrap (OBLIGATOIRE si le user n'a pas de clé SSH configurée)
@@ -121,76 +217,111 @@ Le user fournit uniquement IP + user root + mot de passe. Avant toute chose, con
 
 Après cette phase, toutes les connexions SSH suivantes utiliseront la clé (plus besoin du mot de passe).
 
-### 1. server-setup
-Prépare un VPS Ubuntu 22.04/24.04 vierge (toutes les commandes en root) :
+### 1. server-setup (Ansible)
 
-1. **Mise à jour système** : `apt update && apt upgrade -y`
-2. **Installation de Docker** depuis le dépôt officiel (pas le paquet snap)
-3. **Installation de Docker Compose** (plugin ou standalone)
-4. **Installation de Git**
-5. **Configuration du firewall UFW** :
-   ```bash
-   ufw default deny incoming
-   ufw default allow outgoing
-   ufw allow 22/tcp
-   ufw allow 80/tcp
-   ufw allow 443/tcp
-   ufw --force enable
-   ```
-6. **Création du user de déploiement** `deploy` (OUBLIGATOIRE — ne plus utiliser root ensuite) :
-   ```bash
-   useradd -m -s /bin/bash deploy
-   usermod -aG docker deploy                     # docker sans sudo
-   mkdir -p /home/deploy/.ssh /opt/clickmart
-   cp ~/.ssh/authorized_keys /home/deploy/.ssh/  # même clé SSH que root
-   chown -R deploy:deploy /home/deploy/.ssh /opt/clickmart
-   chmod 700 /home/deploy/.ssh
-   chmod 600 /home/deploy/.ssh/authorized_keys
-   echo "deploy ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/deploy
-   ```
-7. **Vérification** : `ssh deploy@IP "docker ps && echo 'DEPLOY USER OK'"` doit fonctionner
+Prépare le serveur via le rôle `docker`. **Utiliser Ansible par défaut.**
 
-⚠️ Après cette phase, **TOUTES les connexions SSH suivantes utilisent `deploy`** (jamais root).
+```bash
+# VPS vierge → ansible_user: root dans l'inventory
+ansible-playbook infra/ansible/deploy.yml -i infra/ansible/inventory.yml --tags docker
+```
 
-### 2. code-deploy
-Déploie le code en tant que **user `deploy`** :
-- Transférer les fichiers via rsync (ou git clone si clé SSH GitHub configurée pour le user deploy)
-- Génération du fichier `.env` (backend/) avec tous les secrets requis
-- Adapter `ALLOWED_HOSTS` et `CORS_ALLOWED_ORIGINS` avec l'IP du serveur
-- Si SSL pas encore configuré, désactiver temporairement `SECURE_SSL_REDIRECT`
-- `docker compose up -d --build`
-- Health check : `docker compose ps` (tous les conteneurs doivent être "Up")
+**Ce que fait le rôle** :
+- Nettoie les repos Docker existants (évite conflit `signed-by`)
+- Installe Docker CE + Compose Plugin + Git + UFW
+- Crée l'utilisateur `deploy` (sudo NOPASSWD, groupe docker)
+- Ajoute la clé SSH publique (`~/.ssh/id_ed25519.pub`)
+- `docker login` sur ghcr.io (token depuis `secrets.yml`)
+- Ouvre ports 22, 80, 443 + installe fail2ban (SSH jail)
 
-### 3. cicd (optionnel)
-Configure GitHub Actions avec le **user `deploy`** :
-- Génère une clé SSH dédiée au déploiement pour le user deploy
-- Secrets GitHub nécessaires : `SSH_HOST`, `SSH_USER`=deploy, `SSH_KEY`, `ENV_FILE`
-- Workflow : tests → build → rsync ou git pull → docker compose up
-- `git reset --hard origin/main` dans le CI (pas `git pull`)
+Après succès → passer `ansible_user: deploy` dans l'inventory.
 
-### 4. ssl (optionnel)
-Active HTTPS avec Let's Encrypt (via le user `deploy`) :
-- Vérifier que le DNS pointe vers l'IP du VPS (A record)
-- Restaurer la config Nginx HTTPS dans `infra/nginx/default.conf`
-- Setup Certbot avec le service Docker
-- Renouvellement automatique toutes les 12h
-- Repasser `DEBUG=False` et `SECURE_SSL_REDIRECT=True`
+> ⚠️ **Fallback manuel** (si Ansible absent) : voir section [Fallback](#fallback-manuel-déprécié) en fin de document.
+
+### 2. code-deploy (Ansible)
+
+Déploie l'application via le rôle `clickmart_app`.
+
+```bash
+ansible-playbook infra/ansible/deploy.yml -i infra/ansible/inventory.yml --tags app
+```
+
+**Ce que fait le rôle** :
+- Clone le dépôt dans `/opt/clickmart`
+- Génère `.env.prod` depuis le template Jinja2 (variables de `all.yml` + `secrets.yml`)
+- `docker compose pull` + `docker compose up -d`
+- Vérifie l'état des conteneurs
+
+Le `.env.prod` est généré automatiquement — les blocs conditionnels (Cloudinary, Resend, S3) sont gérés par les `{% if %}` Jinja2.
+
+> ⚠️ **Fallback manuel** (si Ansible absent) : voir section [Fallback](#fallback-manuel-déprécié).
+
+### 3. cicd (Ansible, optionnel)
+
+Configure les secrets GitHub Actions via le rôle `github_actions`.
+
+```bash
+ansible-playbook infra/ansible/deploy.yml -i infra/ansible/inventory.yml --tags cicd
+```
+
+Crée `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` dans le repo GitHub. Nécessite `gh` CLI authentifié en local.
+
+### 4. ssl (Ansible, optionnel)
+
+Active HTTPS via le rôle `ssl_certbot`.
+
+```bash
+ansible-playbook infra/ansible/deploy.yml -i infra/ansible/inventory.yml --tags ssl
+```
+
+**Ce que fait le rôle** :
+- Vérifie la résolution DNS (`dig +short`)
+- Bootstrap HTTP : déploie `prod.bootstrap.conf` (sans SSL) → démarre Nginx
+- Obtient les certificats Let's Encrypt (certbot webroot)
+- Restaure la config HTTPS (`prod.conf` depuis git)
+- Redémarre Nginx + lance certbot en renouvellement auto (12h)
+
+Idempotent : si les certificats existent déjà → restaure HTTPS + redémarre Nginx directement.
+
+### Déploiement complet from-scratch
+
+Pour déployer un VPS vierge en une seule commande :
+
+```bash
+# 1. Configurer l'inventory (ansible_user: root)
+# 2. Préparer secrets.yml
+# 3. Lancer
+ansible-playbook infra/ansible/deploy.yml -i infra/ansible/inventory.yml
+# → Docker + app + SSL : ~3 min
+```
+
+---
+
+### Fallback manuel (déprécié)
+
+**Si Ansible n'est pas installé**, l'agent utilise les commandes SSH inline historiques. Ces étapes sont moins fiables, non idempotentes, et ne gèrent pas les cas edge (conflit Docker `signed-by`, bootstrap SSL). **Privilégier Ansible** :
+
+```bash
+pip install ansible && ansible-galaxy collection install community.docker
+```
+
+Les instructions manuelles détaillées sont dans `.github/instructions/phase-1-server-setup.md` à `phase-4-ssl.md`.
 
 ## Commandes utiles
 - `ssh deploy@IP` : connexion SSH (toujours en `deploy`, jamais en `root` après phase 1)
 - `docker compose up` : lancer l'app en local
-- `python manage.py test` : 67 tests Django
+- `python -m pytest -q` : 64 tests Django (pytest)
 - `npm run dev` : frontend Vite (port 5173)
 - `npm run test` : 11 tests React (vitest)
+- `ansible-playbook deploy.yml --tags app` : déploiement de l'app
 
 ## Notes importantes
 - ⛔ **NE PAS utiliser root après la phase 1** — toutes les opérations se font avec le user `deploy`
-- ALLOWED_HOSTS et CORS_ALLOWED_ORIGINS sont dynamiques via config() + split(',')
+- ALLOWED_HOSTS et CORS_ALLOWED_ORIGINS sont dynamiques via `django-environ` (`env.list()`)
 - Les statics sont servis par Nginx (volume partagé), pas par Django
 - `docker compose restart backend` ne recharge pas les variables d'env → utiliser --force-recreate
-- `git reset --hard origin/main` dans le CI (pas git pull)
-- Le user SSH du CI doit avoir les permissions sur /opt/clickmart (chown -R)
-- Le user `deploy` est dans le groupe `docker` → pas besoin de sudo pour docker
-- Les clés SSH sont dans `/home/deploy/.ssh/` — les mêmes que root
+- Les IDs sont des UUIDs (plus d'auto-increment) — `/api/v1/products/<uuid>/`
+- Les tests utilisent pytest : `python -m pytest -q` (64 tests)
+- Le playbook Ansible est le moteur de déploiement par défaut (v4.0)
 
 Consulte les docs dans docs/deploy/ pour les guides détaillés.

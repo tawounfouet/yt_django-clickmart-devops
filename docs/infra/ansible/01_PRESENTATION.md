@@ -19,6 +19,7 @@ Provisionner un VPS vierge → application ClickMart fonctionnelle en HTTPS, **s
 | Déploiement de l'application (clone, .env, up) | Configuration DNS |
 | Certificats Let's Encrypt | Firewall cloud (ports 22, 80, 443) |
 | Secrets GitHub Actions pour CI/CD | |
+| Multi-environnement (production + staging, même VPS) | |
 
 ---
 
@@ -34,12 +35,24 @@ Utilisateur                    Ansible                         Serveur cible
     │     dans inventory.yml      │                                │
     │                             │                                │
     │  3. ansible-playbook ──────▶│  docker          ────────────▶ Docker + Compose + Git
-    │                             │  clickmart_app   ────────────▶ Clone + .env + up
-    │                             │  ssl_certbot     ────────────▶ Certificats HTTPS
+    │     --limit clickmart-prod  │  clickmart_app   ────────────▶ Clone + .env + up
+    │     --limit clickmart-stg   │  ssl_certbot     ────────────▶ Certificats HTTPS (prod only)
     │                             │  github_actions  ────────────▶ Secrets CI/CD
     │                             │                                │
-    │  4. Site dispo ────────────▶│                                │
+    │  4. Site dispo ────────────▶│  https://webtech-dev.info     │
+    │                             │  http://staging:8080          │
 ```
+
+---
+
+## Environnements
+
+| Environnement | Host | Domaine | Port | SSL |
+|---|---|---|---|---|
+| Production | `clickmart-prod` | `webtech-dev.info` | 80/443 | ✅ |
+| Staging | `clickmart-staging` | `staging.webtech-dev.info` | 8080 | ❌ |
+
+Même playbook, variables différentes par host (`app_dir`, `compose_files`, `project_name`, `branch`, `ssl_enabled`). Déploiement ciblé via `--limit`.
 
 ---
 
@@ -48,7 +61,7 @@ Utilisateur                    Ansible                         Serveur cible
 | Élément | Détail |
 |---|---|
 | OS serveur | Ubuntu 24.04 (≥ 22.04 accepté) |
-| RAM minimum | 960 MB |
+| RAM minimum | 960 MB (2 Go recommandé pour prod + staging) |
 | Disque minimum | 25 GB |
 | Services | Docker 28.x, Compose v2, PostgreSQL 16, Redis 7 |
 | Domaines | `webtech-dev.info` + `www.webtech-dev.info` |

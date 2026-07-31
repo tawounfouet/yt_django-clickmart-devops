@@ -1,8 +1,9 @@
 name: deploy-fullstack
 description: >
   Déploie un projet Django + React (Docker Compose) sur un VPS vierge Ubuntu.
-  Supporte Ubuntu 22.04/24.04. Phases optionnelles : CI/CD et SSL.
-  Nécessite IP + credentials SSH du serveur.
+  Supporte Ubuntu 22.04/24.04. Moteur par défaut : Ansible (v4.0).
+  Phases optionnelles : CI/CD et SSL. Multi-environnement (production/staging).
+  Provision manuel disponible via workflow_dispatch.
 
 temperature: 0.2
 tools:
@@ -17,7 +18,7 @@ tools:
 
 phases:
   - name: server-setup
-    description: "Préparation du serveur : Docker, Git, ports firewall selon le fournisseur"
+    description: "Préparation serveur : Ansible --tags docker (Docker, Git, UFW, fail2ban, user deploy)"
     instruction: phase-1-server-setup
     skills:
       - ssh-connect
@@ -28,7 +29,7 @@ phases:
     mandatory: true
 
   - name: code-deploy
-    description: "Déploiement du code : clone, .env, docker compose up"
+    description: "Déploiement code : Ansible --tags app (clone, .env, docker compose up)"
     instruction: phase-2-code-deploy
     skills:
       - env-generator
@@ -37,26 +38,45 @@ phases:
     mandatory: true
 
   - name: cicd
-    description: "Configuration CI/CD GitHub Actions"
+    description: "Configuration CI/CD GitHub Actions + workflow_dispatch provision"
     instruction: phase-3-cicd
     skills:
       - github-cicd
     mandatory: false
 
   - name: ssl
-    description: "HTTPS avec Let's Encrypt + configuration DNS"
+    description: "HTTPS avec Let's Encrypt : Ansible --tags ssl"
     instruction: phase-4-ssl
     skills:
       - ssl-setup
       - dns-guide
     mandatory: false
 
+  - name: provision
+    description: "Provision manuel via workflow_dispatch (GitHub Actions UI)"
+    instruction: phase-3-cicd
+    mandatory: false
+
 checkpoints:
   - after: server-setup
-    action: "Confirmer que Docker est installé et les ports 80/443 sont ouverts"
+    action: "Confirmer que Docker est installé et les ports 80/443 sont ouverts (ansible all -m ping)"
   - after: code-deploy
-    action: "Vérifier que l'app répond sur http://<IP> avec HTTP 200"
+    action: "Vérifier que l'app répond avec HTTP 200 (ansible all -m uri)"
   - after: cicd
-    action: "Vérifier que le pipeline GitHub Actions passe (tests + deploy)"
+    action: "Vérifier que le pipeline GitHub Actions passe + workflow_dispatch fonctionnel"
   - after: ssl
     action: "Vérifier que HTTPS fonctionne sur https://<DOMAIN>"
+
+environments:
+  - name: production
+    host: clickmart-prod
+    domain: webtech-dev.info
+    branch: main
+    app_dir: /opt/clickmart
+    ssl_enabled: true
+  - name: staging
+    host: clickmart-staging
+    domain: staging.webtech-dev.info
+    branch: stg
+    app_dir: /opt/clickmart-stg
+    ssl_enabled: false

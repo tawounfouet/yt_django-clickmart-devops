@@ -599,4 +599,38 @@ docs/plans/
 
 ---
 
-*Plan créé le 29 juillet 2026.*
+## 6. V4 — Intégration Ansible (30/07/2026)
+
+**Objectif** : Remplacer les commandes SSH inline par le playbook Ansible comme moteur de déploiement par défaut.
+
+### 6.1 Mapping phases agent ↔ rôles Ansible
+
+| Phase agent | Rôle Ansible | Commande |
+|---|---|---|
+| Phase 1 — server-setup | `docker` | `ansible-playbook deploy.yml --tags docker` |
+| Phase 2 — code-deploy | `clickmart_app` | `ansible-playbook deploy.yml --tags app` |
+| Phase 3 — cicd | `github_actions` | `ansible-playbook deploy.yml --tags cicd` |
+| Phase 4 — ssl | `ssl_certbot` | `ansible-playbook deploy.yml --tags ssl` |
+| Complet from-scratch | Tous | `ansible-playbook deploy.yml` (3 min) |
+
+### 6.2 Modifications de l'agent
+
+- **Preflight** : nouveaux prérequis (`ansible`, `community.docker`, `secrets.yml`)
+- **Phases** : remplacées par appels playbook avec `--tags`
+- **Préparation** : nouvelle section "Préparation Ansible" (génération `secrets.yml`, config `inventory.yml`)
+- **Fallback** : chemin manuel conservé mais déprécié (pointe vers `.github/instructions/`)
+- **Décision** : table enrichie avec entrées `ansible`, `inventory`
+
+### 6.3 Fichiers modifiés
+
+- `.opencode/agents/deploy-fullstack.md` — agent principal (v4.0)
+- `docs/reports/AGENT_DEPLOY_FULLSTACK.md` — rapport mis à jour
+- `docs/plans/PLAN_AGENT_DEPLOIEMENT.md` — ce fichier
+
+### 6.4 Résultat
+
+L'agent utilise Ansible par défaut. Le playbook est idempotent, documenté (10 fichiers), et from-scratch validé. Le chemin manuel reste disponible en fallback.
+
+---
+
+*Plan créé le 29 juillet 2026, mis à jour le 30 juillet 2026.*

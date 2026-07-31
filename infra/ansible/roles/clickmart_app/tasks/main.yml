@@ -1,7 +1,7 @@
 ---
-- name: Ensure /opt/clickmart directory exists
+- name: Ensure app directory exists
   file:
-    path: /opt/clickmart
+    path: "{{ app_dir }}"
     state: directory
     owner: deploy
     group: deploy
@@ -10,34 +10,33 @@
 - name: Clone repository
   git:
     repo: "https://github.com/tawounfouet/yt_django-clickmart-devops.git"
-    dest: /opt/clickmart
-    version: main
+    dest: "{{ app_dir }}"
+    version: "{{ branch }}"
     force: yes
   become_user: deploy
   register: git_result
 
 - name: Ensure .envs directory exists
   file:
-    path: /opt/clickmart/backend/.envs
+    path: "{{ app_dir }}/backend/.envs"
     state: directory
     owner: deploy
     group: deploy
     mode: 0700
 
-- name: Generate .env.prod from template
+- name: Generate .env from template
   template:
     src: .env.prod.j2
-    dest: /opt/clickmart/backend/.envs/.prod
+    dest: "{{ app_dir }}/backend/.envs/.prod"
     owner: deploy
     group: deploy
     mode: 0600
 
 - name: Pull latest images
   community.docker.docker_compose_v2:
-    project_src: /opt/clickmart
-    files:
-      - docker-compose.yml
-      - docker-compose.prod.yml
+    project_src: "{{ app_dir }}"
+    files: "{{ compose_files }}"
+    project_name: "{{ project_name }}"
     state: present
     pull: always
     build: never
@@ -50,10 +49,9 @@
 
 - name: Check container status
   community.docker.docker_compose_v2:
-    project_src: /opt/clickmart
-    files:
-      - docker-compose.yml
-      - docker-compose.prod.yml
+    project_src: "{{ app_dir }}"
+    files: "{{ compose_files }}"
+    project_name: "{{ project_name }}"
   become_user: deploy
   register: compose_ps
 

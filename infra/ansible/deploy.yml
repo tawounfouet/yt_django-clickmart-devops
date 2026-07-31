@@ -1,6 +1,6 @@
 ---
 - name: Provision ClickMart server
-  hosts: clickmart-prod
+  hosts: all
   become: yes
   vars_files:
     - group_vars/all.yml
@@ -19,6 +19,7 @@
         file: group_vars/secrets.yml
       when: secrets_file.stat.exists
       tags: always
+
     - name: Gather facts
       setup:
 
@@ -48,14 +49,14 @@
   post_tasks:
     - name: Health check — frontend
       uri:
-        url: "https://{{ domain }}/"
+        url: "{{ health_proto }}://{{ domain }}/"
         status_code: [200, 301, 302]
       register: health_frontend
       ignore_errors: yes
 
     - name: Health check — API
       uri:
-        url: "https://{{ domain }}/api/v1/products/"
+        url: "{{ health_proto }}://{{ domain }}/api/v1/products/"
         status_code: [200, 301, 302]
       register: health_api
       ignore_errors: yes
@@ -63,6 +64,7 @@
     - name: Display health results
       debug:
         msg:
-          - "Frontend: {{ 'OK' if health_frontend.status in (200,301,302) else 'FAIL' }}"
-          - "API:      {{ 'OK' if health_api.status in (200,301,302) else 'FAIL' }}"
-          - "Domaine:  https://{{ domain }}"
+          - "Env:       {{ env }}"
+          - "Frontend:  {{ 'OK' if health_frontend.status in (200,301,302) else 'FAIL' }}"
+          - "API:       {{ 'OK' if health_api.status in (200,301,302) else 'FAIL' }}"
+          - "URL:       {{ health_proto }}://{{ domain }}"

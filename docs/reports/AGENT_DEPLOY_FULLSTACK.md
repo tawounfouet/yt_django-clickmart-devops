@@ -1,9 +1,8 @@
 # Rapport — Agent deploy-fullstack
 
-**Date** : 2026-07-29
-**Version** : 3.0
-**Fichier** : `.opencode/agents/deploy-fullstack.md` (local) / `~/.config/opencode/agents/deploy-fullstack.md` (global)
-**Auteur** : OpenCode + Thomas Awounfouet
+**Date** : 2026-07-30
+**Version** : 4.1
+**Fichier** : `.opencode/agents/deploy-fullstack.md`
 
 ---
 
@@ -47,23 +46,23 @@ deploy-fullstack (subagent, temperature 0.2)
 │   └── Vérification auth par clé
 │
 ├── Phase 1 — server-setup
-│   ├── Docker + Compose + Git
-│   ├── Firewall UFW (22, 80, 443)
-│   └── Création user deploy
+│   ├── **Mode Ansible (défaut)** : `ansible-playbook --tags docker`
+│   │   ├── Docker + Compose + Git + UFW + fail2ban
+│   │   └── Création user deploy + ghcr.io login
+│   └── Mode manuel (fallback) : SSH inline
 │
 ├── Phase 2 — code-deploy
-│   ├── Sélection environnement (production/staging)
-│   ├── Arrêt de l'autre stack (anti-OOM)
-│   ├── Stratégie git-first (deploy key GitHub)
-│   ├── Configuration .envs/.prod ou .envs/.staging
-│   ├── docker compose -p clickmart -f base -f override up
+│   ├── **Mode Ansible (défaut)** : `ansible-playbook --tags app`
+│   │   ├── Clone repo + template .env.prod
+│   │   └── docker compose pull + up
+│   ├── Mode manuel (fallback) : rsync ou git clone
 │   └── Health check
 │
 ├── Phase 3 — cicd (optionnel)
-│   └── GitHub Actions conditionnel par branche
+│   └── **Mode Ansible** : `ansible-playbook --tags cicd` → `gh secret set`
 │
 ├── Phase 4 — ssl (production uniquement)
-│   └── Let's Encrypt + Certbot
+│   └── **Mode Ansible** : `ansible-playbook --tags ssl` → bootstrap HTTP → Certbot → HTTPS
 │
 ├── Phase 5 — post-deploy validation (OBLIGATOIRE)
 │   ├── Conteneurs + logs
@@ -274,6 +273,8 @@ La version locale **prend le dessus** sur la globale si elle existe. La version 
 | 2.0 | 2026-07-29 | Inspection Django, git-first, post-deploy validation, dry-run, rollback, synchro serveur→dépôt |
 | 2.1 | 2026-07-29 | Support Celery/Redis, détection fournisseur cloud (9 providers), multi-environnements |
 | 3.0 | 2026-07-29 | Commande `inventory`, `@deploy-fullstack production\|staging`, règle anti-OOM, DRY_RUN_REPORT.md + inventory.yml auto-générés, mode dry-run enrichi (annexe de raisonnement)
+| 4.0 | 2026-07-30 | **Intégration Ansible** : playbook comme moteur par défaut, préparation secrets, fallback manuel déprécié |
+| 4.1 | 2026-07-31 | **Mode export** : scan serveur + projet → génère inventory.yml + secrets.yml.example |
 
 ## Retour d'expérience (sessions réelles)
 
@@ -317,6 +318,7 @@ IP: 87.106.222.62, user: root, mdp: xxxxx
 - [x] ~~Support Celery / Redis / workers asynchrones~~
 - [ ] Intégration vault de secrets (1Password, Bitwarden)
 - [ ] Support Docker Swarm / Kubernetes
-- [ ] Export de la configuration comme template Terraform/Ansible
+- [x] Export de la configuration comme template Terraform/Ansible (v4.1 — scan serveur → génère inventory)
+- [x] **Intégration Ansible** — playbook comme moteur de déploiement par défaut (v4.0)
 - [ ] Auto-détection du type de CI/CD (GitHub Actions, GitLab CI, etc.)
 - [ ] Notification post-déploiement (Slack, Discord, email)

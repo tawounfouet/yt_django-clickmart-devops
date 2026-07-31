@@ -32,16 +32,17 @@
 ansible-galaxy collection install community.docker
 
 # === Déploiement ===
-ansible-playbook deploy.yml -i inventory.yml                           # Complet
-ansible-playbook deploy.yml -i inventory.yml --tags docker             # Docker seul
-ansible-playbook deploy.yml -i inventory.yml --tags app                # App seule
-ansible-playbook deploy.yml -i inventory.yml --tags ssl                # SSL seul
-ansible-playbook deploy.yml -i inventory.yml --tags cicd               # CI/CD seul
-ansible-playbook deploy.yml -i inventory.yml --ask-vault-pass          # Avec vault
-ansible-playbook deploy.yml -i inventory.yml --check                   # Dry-run
-ansible-playbook deploy.yml -i inventory.yml --check --diff            # Dry-run + diffs
-ansible-playbook deploy.yml -i inventory.yml --syntax-check            # Syntaxe
-ansible-playbook deploy.yml -i inventory.yml --limit clickmart-prod    # Un seul hôte
+ansible-playbook deploy.yml -i inventory.yml --limit clickmart-prod    # Production
+ansible-playbook deploy.yml -i inventory.yml --limit clickmart-staging # Staging
+ansible-playbook deploy.yml -i inventory.yml --limit clickmart-prod --tags docker  # Docker seul
+ansible-playbook deploy.yml -i inventory.yml --limit clickmart-prod --tags app     # App seule
+ansible-playbook deploy.yml -i inventory.yml --limit clickmart-prod --tags ssl     # SSL seul
+ansible-playbook deploy.yml -i inventory.yml --limit clickmart-prod --tags cicd    # CI/CD seul
+ansible-playbook deploy.yml -i inventory.yml --ask-vault-pass            # Avec vault
+ansible-playbook deploy.yml -i inventory.yml --check                     # Dry-run
+ansible-playbook deploy.yml -i inventory.yml --check --diff              # Dry-run + diffs
+ansible-playbook deploy.yml -i inventory.yml --syntax-check              # Syntaxe
+ansible-playbook deploy.yml -i inventory.yml --limit clickmart-prod      # Un seul hôte
 
 # === Diagnostic ===
 ansible all -i inventory.yml -m ping
@@ -76,18 +77,19 @@ ansible-vault view group_vars/secrets.yml
 
 ---
 
-## Structure des conteneurs en production
+## Structure des conteneurs
 
 ```
-docker compose ps (production)
-┌───────────────────┬──────────────────────────────┐
-│ backend           │ ghcr.io/.../clickmart-backend │
-│ celery-worker     │ ghcr.io/.../clickmart-backend │
-│ celery-beat       │ ghcr.io/.../clickmart-backend │
-│ frontend          │ ghcr.io/.../clickmart-frontend│
-│ nginx             │ nginx:alpine                  │
-│ certbot           │ certbot/certbot               │
-└───────────────────┴──────────────────────────────┘
+Production (clickmart)                    Staging (clickmart-stg)
+┌───────────────────┬─────────────────┐  ┌───────────────────┬─────────────────┐
+│ backend           │ ghcr.io/...     │  │ backend           │ ghcr.io/...     │
+│ celery-worker     │ ghcr.io/...     │  │ celery-worker     │ ghcr.io/...     │
+│ celery-beat       │ ghcr.io/...     │  │ celery-beat       │ ghcr.io/...     │
+│ frontend          │ ghcr.io/...     │  │ frontend          │ ghcr.io/...     │
+│ nginx             │ nginx:alpine    │  │ nginx             │ nginx:alpine    │
+│ certbot           │ certbot/certbot │  │ (pas de certbot)  │                 │
+└───────────────────┴─────────────────┘  └───────────────────┴─────────────────┘
+        :80/443                                   :8080
 ```
 
 ---
@@ -104,7 +106,10 @@ docker compose ps (production)
 
 ```bash
 cd infra/ansible
-ansible-playbook deploy.yml -i inventory.yml
+# Production
+ansible-playbook deploy.yml -i inventory.yml --limit clickmart-prod
+# Staging
+ansible-playbook deploy.yml -i inventory.yml --limit clickmart-staging --tags docker,app
 ```
 
 - [ ] `inventory.yml` : passer à `ansible_user: deploy`

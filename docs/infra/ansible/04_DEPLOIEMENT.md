@@ -47,27 +47,28 @@ ansible-playbook infra/ansible/deploy.yml -i infra/ansible/inventory.yml
 ## 4.3 Re-déploiement (serveur existant)
 
 ```bash
-ansible-playbook infra/ansible/deploy.yml -i infra/ansible/inventory.yml
+# Production
+ansible-playbook infra/ansible/deploy.yml -i infra/ansible/inventory.yml --limit clickmart-prod
+
+# Staging
+ansible-playbook infra/ansible/deploy.yml -i infra/ansible/inventory.yml --limit clickmart-staging
 ```
 
-Le playbook est **idempotent** : si tout est à jour, rien n'est modifié.
+Le playbook est **idempotent** : si tout est à jour, rien n'est modifié. Le `--limit` permet de cibler un environnement spécifique.
 
 ---
 
 ## 4.4 Déploiement partiel par tags
 
 ```bash
-# Mise à jour de l'application uniquement
-ansible-playbook deploy.yml -i inventory.yml --tags app
+# Mise à jour de l'application uniquement (production)
+ansible-playbook deploy.yml -i inventory.yml --limit clickmart-prod --tags app
 
-# Réinstaller/rafraîchir Docker
-ansible-playbook deploy.yml -i inventory.yml --tags docker
+# Déployer staging
+ansible-playbook deploy.yml -i inventory.yml --limit clickmart-staging --tags docker,app
 
-# Ajouter SSL sur un serveur existant
-ansible-playbook deploy.yml -i inventory.yml --tags ssl
-
-# Configurer CI/CD
-ansible-playbook deploy.yml -i inventory.yml --tags cicd
+# Ajouter SSL (production uniquement, ignoré en staging)
+ansible-playbook deploy.yml -i inventory.yml --limit clickmart-prod --tags ssl
 ```
 
 ---
