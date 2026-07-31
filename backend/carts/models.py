@@ -9,6 +9,8 @@ User = get_user_model()
 
 
 class Cart(models.Model):
+
+    """Shopping cart — one per user, holds items."""
     objects = BaseManager()
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -37,7 +39,9 @@ class Cart(models.Model):
         return grand_total.quantize(Decimal("0.00"))
 
 
+
 class CartItem(models.Model):
+    """Line item linking a product to a cart with quantity."""
     objects = BaseManager()
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')

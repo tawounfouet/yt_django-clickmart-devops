@@ -8,6 +8,8 @@ User = get_user_model()
 
 
 class Order(models.Model):
+
+    """Customer order — tracks status, totals, and shipping."""
     objects = BaseManager()
     STATUS_CHOICES = [
         ('PENDING', 'Pending'),
@@ -31,7 +33,9 @@ class Order(models.Model):
         return f"Order #{self.id} - {self.user.email}"
 
 
+
 class OrderItem(models.Model):
+    """Snapshot of a product within an order (price frozen at purchase)."""
     objects = BaseManager()
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order = models.ForeignKey(Order, on_delete=models.CASCADE)

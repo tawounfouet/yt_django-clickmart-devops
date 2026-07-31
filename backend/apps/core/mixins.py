@@ -7,7 +7,7 @@ class ValidateFieldsMixin:
         unknown = set(self.initial_data.keys()) - set(self.fields.keys())
         if unknown:
             raise serializers.ValidationError({
-                serializers.NON_FIELD_ERRORS_KEY:
+                "non_field_errors":
                     f'Unknown field(s): {", ".join(sorted(unknown))}'
             })
         return attrs
