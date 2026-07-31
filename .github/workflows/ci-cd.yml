@@ -5,6 +5,20 @@ on:
     branches: [main, stg, dev]
   pull_request:
     branches: [main, stg, dev]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - production
+          - staging
+      tags:
+        description: 'Ansible tags (comma-separated: docker, app, ssl, cicd)'
+        required: false
+        type: string
+        default: 'docker'
 
 env:
   REGISTRY: ghcr.io
@@ -193,3 +207,55 @@ jobs:
           script: |
             cd /opt/clickmart && git fetch origin main && git reset --hard origin/main
             bash /opt/clickmart/infra/scripts/deploy-app.sh production main '${{ github.actor }}' '${{ secrets.GITHUB_TOKEN }}'
+
+  # ── Ansible provision (manual trigger) ────────────────
+  provision:
+    name: Provision — ${{ inputs.target }}
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: |
+          pip install ansible
+          ansible-galaxy collection install community.docker
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.LINODE_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Generate secrets.yml
+        run: |
+          cat > infra/ansible/group_vars/secrets.yml << 'EOF'
+          secret_key: "${{ secrets.SECRET_KEY || 'provision-key-change-me' }}"
+          db_password: "${{ secrets.DB_PASSWORD || 'changeme' }}"
+          redis_password: "${{ secrets.REDIS_PASSWORD || 'changeme' }}"
+          cloudinary_api_key: "${{ secrets.CLOUDINARY_API_KEY || 'changeme' }}"
+          cloudinary_api_secret: "${{ secrets.CLOUDINARY_API_SECRET || 'changeme' }}"
+          resend_api_key: "${{ secrets.RESEND_API_KEY || 'changeme' }}"
+          github_user: "${{ github.actor }}"
+          github_token: "${{ secrets.GITHUB_TOKEN }}"
+          sentry_dsn: "${{ secrets.SENTRY_DSN || '' }}"
+          EOF
+
+      - name: Set target host
+        id: target
+        run: |
+          if [ "${{ inputs.target }}" = "production" ]; then
+            echo "host=clickmart-prod" >> $GITHUB_OUTPUT
+          else
+            echo "host=clickmart-staging" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Ansible playbook
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: false
+        run: |
+          ansible-playbook infra/ansible/deploy.yml \
+            -i infra/ansible/inventory.yml \
+            --limit ${{ steps.target.outputs.host }} \
+            --tags "${{ inputs.tags }}" \
+            -e "ansible_ssh_private_key_file=$HOME/.ssh/deploy_key"

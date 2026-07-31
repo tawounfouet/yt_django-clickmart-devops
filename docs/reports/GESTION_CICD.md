@@ -47,11 +47,36 @@ git push main|stg|dev
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-| Branche | Lint | Test | Build CI | Build & Push | Déploiement |
-|---|---|---|---|---|---|
-| `dev` | ✅ | ✅ | ✅ | ❌ | ❌ |
-| `stg` | ✅ | ✅ | ✅ | ✅ | ✅ Staging (`:8080`) |
-| `main` | ✅ | ✅ | ✅ | ✅ | ✅ Production (`:80/443`) |
+| Branche | Lint | Test | Build CI | Build & Push | Déploiement | Provision |
+|---|---|---|---|---|---|---|
+| `dev` | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `stg` | ✅ | ✅ | ✅ | ✅ | ✅ Staging (`:8080`) | ❌ |
+| `main` | ✅ | ✅ | ✅ | ✅ | ✅ Production (`:80/443`) | ❌ |
+| `workflow_dispatch` | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ Manuel |
+
+### `provision` (workflow_dispatch, optionnel)
+
+Déclenché manuellement depuis l'UI GitHub Actions → **Run workflow**.
+
+```yaml
+inputs:
+  target:
+    type: choice
+    options: [production, staging]
+  tags:
+    type: string
+    default: 'docker'
+```
+
+| Input | Description | Exemple |
+|---|---|---|
+| `target` | Environnement cible | `production` ou `staging` |
+| `tags` | Tags Ansible (`docker,app,ssl,cicd`) | `docker` (setup), `docker,app,ssl` (complet) |
+
+**Cas d'usage** :
+- VPS vierge → `target: production, tags: docker,app,ssl`
+- Ajouter SSL → `target: production, tags: ssl`
+- Déployer staging → `target: staging, tags: docker,app`
 
 ---
 

@@ -106,11 +106,14 @@
 - [x] **DB backup rétention** — rotation quotidienne 7j + hebdomadaire 30j
 - [ ] **Nettoyer `deploy-app.sh`** — supprimer le git fetch redondant (fait aussi en inline)
 
-- [ ] **Ansible : multi-environnements** — ajouter `staging` à l'inventory
-  - Host `clickmart-staging` avec ses propres vars (domaine, IP, env)
-  - `--limit staging` pour déployer staging uniquement
-- [ ] **Ansible : CI/CD** — intégrer le playbook dans `.github/workflows/ci-cd.yml`
-  - Job `provision` optionnel avec `workflow_dispatch`
+- [x] **Ansible : multi-environnements** — staging ajouté à l'inventory
+  - ✅ `clickmart-staging` avec ses propres vars (app_dir, compose_files, branch, ssl_enabled)
+  - ✅ Playbook `hosts: all` + `--limit staging` pour déploiement ciblé
+- [x] **Ansible : CI/CD** — job `provision` avec `workflow_dispatch`
+  - ✅ Déclenchement manuel depuis l'UI GitHub Actions
+  - ✅ Inputs : target (production/staging) + tags (docker, app, ssl, cicd)
+  - ✅ Génération `secrets.yml` depuis les secrets GitHub
+  - ✅ SSH key setup via `LINODE_SSH_KEY`
 
 - [ ] **Compléter les skeletons media** — installer les lib et activer les process
   - `apps/audio/` → `pip install pydub` → extract metadata
