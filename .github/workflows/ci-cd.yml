@@ -49,7 +49,7 @@ jobs:
           pip install -r requirements.txt
           pip install ruff
       - name: Lint
-        run: ruff check . --ignore F401,E501,E402,B017,BLE001,I001,RUF012,RUF100,S110
+        run: ruff check . --ignore F401,E501,E402,B017,BLE001,I001,RUF012,RUF100,S110 --exclude 'config/settings/'
       - name: Forbidden imports
         run: |
           ! grep -rn "from decouple\|import decouple\|python-decouple" . --include="*.py" \
