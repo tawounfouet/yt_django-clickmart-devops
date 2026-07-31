@@ -201,9 +201,9 @@ clickmart/
 | `CHANGELOG.md` | Historique des versions |
 | `SDLC.md` | Cycle de vie du développement |
 | `TODO.md` | Priorités et dette technique |
-| `docs/analyse/ANALYSE_VOCALFIT_CLICKMART.md` | Analyse comparative VocalFit |
-| `docs/plans/PLAN_AMELIORATIONS_VOCALFIT.md` | Plan d'implémentation améliorations |
-| `docs/plans/PLAN_ANSIBLE.md` | Plan d'implémentation Ansible |
+| `docs/analyse/2026-07-30_ANALYSE_VOCALFIT_CLICKMART.md` | Analyse comparative VocalFit |
+| `docs/plans/2026-07-30_PLAN_AMELIORATIONS_VOCALFIT.md` | Plan d'implémentation améliorations |
+| `docs/plans/2026-07-30_PLAN_ANSIBLE.md` | Plan d'implémentation Ansible |
 | `docs/infra/ansible/` | Documentation Ansible (10 fichiers) |
 | `docs/deploy/` | Guides déploiement (6 fichiers) |
 | `docs/debug/2026-07-30_CI-CD_bugs.md` | Rapport de bugs CI/CD |

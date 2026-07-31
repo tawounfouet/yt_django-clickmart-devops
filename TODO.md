@@ -37,8 +37,8 @@
 - [x] Documentation Ansible complète (10 fichiers) dans `docs/infra/ansible/`
 - [x] Documentation bugs CI/CD dans `docs/debug/2026-07-30_CI-CD_bugs.md`
 - [x] Mise à jour `docs/reports/GESTION_CICD.md` → v3.0
-- [x] Analyse comparative VocalFit : `docs/analyse/ANALYSE_VOCALFIT_CLICKMART.md`
-- [x] Plan d'implémentation : `docs/plans/PLAN_AMELIORATIONS_VOCALFIT.md`
+- [x] Analyse comparative VocalFit : `docs/analyse/2026-07-30_ANALYSE_VOCALFIT_CLICKMART.md`
+- [x] Plan d'implémentation : `docs/plans/2026-07-30_PLAN_AMELIORATIONS_VOCALFIT.md`
 
 ### Session 30/07 — Quick Wins (VocalFit → ClickMart)
 
@@ -62,6 +62,18 @@
 - [x] fail2ban — ajouté au rôle Ansible docker (SSH jail, maxretry 3, bantime 1h)
 - [x] DB backup — rétention hebdomadaire 30j (copie le dimanche)
 
+### Session 31/07 — Analyse django-pro-core
+
+- [x] Analyse comparative : `docs/analyse/2026-07-31_ANALYSE_DJANGO_PRO_CORE.md` (14 patterns)
+- [ ] **django-split-settings** — remplacer le `settings.py` monolithique
+- [ ] **select_for_update() + transaction.on_commit()** — intégrité des commandes
+- [ ] **Poetry** — remplacer `requirements.txt`
+- [ ] **ValidateFieldsMixin** — defense in depth pour les serializers
+- [ ] **deep_update + env vars** — surcharge de settings par `CLICKMART_*`
+- [ ] **Pre-commit mypy + hooks** — typage statique
+- [ ] **Concurrency CI** — cancel-in-progress sur deploy
+- [ ] **get_or_none()** — QuerySet utilitaire
+
 ---
 
 ## 🔴 Priorité 1 — Sécurité / Fiabilité
@@ -69,6 +81,7 @@
 - [ ] **Chiffrer secrets.yml avec ansible-vault**
   - `ansible-vault encrypt infra/ansible/group_vars/secrets.yml`
   - Ajouter `--ask-vault-pass` à la commande de déploiement
+  - ⚠️ Le fichier est aussi en clair sur le serveur (`/opt/clickmart/infra/ansible/group_vars/`)
 - [ ] **Rate limiting Nginx** — `limit_req_zone` + `limit_req` dans prod.conf
   - Actuellement couvert par DRF throttling (anon 20/min, user 60/min)
 - [ ] **django-celery-beat** — scheduler DB-backed pour tâches périodiques
@@ -80,8 +93,8 @@
 ## 🟠 Priorité 2 — Améliorations
 
 - [ ] **Upgrade RAM Linode** — 961 MiB → 2 Go (~12$/mois)
+  - ⚠️ 6 conteneurs utilisent 740 MB (mem_limit), OS ~200 MB, marge quasi nulle
   - Permettrait staging + prod simultanés
-  - Actuellement 275 MB libre, stable mais limite
 - [x] **Healthchecks Celery dans docker-compose.yml**
   - ✅ Déjà fait (29/07) — `celery inspect ping` configuré
 - [ ] **Flower monitoring** — dashboard temps réel Celery
@@ -110,6 +123,8 @@
   - ✅ `clickmart-staging` avec ses propres vars (app_dir, compose_files, branch, ssl_enabled)
   - ✅ Playbook `hosts: all` + `--limit staging` pour déploiement ciblé
 - [x] **Ansible : CI/CD** — job `provision` avec `workflow_dispatch`
+- [x] **Export Ansible** — `infra/scripts/ansible-export.sh` + mode `@deploy-fullstack export`
+- [ ] **Créer secrets.yml.example** — généré par le script export mais pas encore commité
   - ✅ Déclenchement manuel depuis l'UI GitHub Actions
   - ✅ Inputs : target (production/staging) + tags (docker, app, ssl, cicd)
   - ✅ Génération `secrets.yml` depuis les secrets GitHub
