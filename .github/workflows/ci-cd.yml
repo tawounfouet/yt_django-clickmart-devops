@@ -46,8 +46,9 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
-          pip install ruff
+          pip install uv
+          uv pip install --system -r requirements.txt
+          uv pip install --system ruff
       - name: Lint
         run: ruff check . --ignore F401,E501,E402,B017,BLE001,I001,RUF012,RUF100,S110 --exclude 'config/settings/'
       - name: Forbidden imports
@@ -71,7 +72,7 @@ jobs:
           cache: 'pip'
           cache-dependency-path: backend/requirements.txt
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install uv && uv pip install --system -r requirements.txt
       - name: Run tests
         env:
           SECRET_KEY: ci-test-secret-key-not-for-prod
