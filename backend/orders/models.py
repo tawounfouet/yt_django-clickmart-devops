@@ -1,3 +1,4 @@
+from apps.core.managers import BaseManager
 from django.db import models
 from django.contrib.auth import get_user_model
 from products.models import Product
@@ -7,6 +8,7 @@ User = get_user_model()
 
 
 class Order(models.Model):
+    objects = BaseManager()
     STATUS_CHOICES = [
         ('PENDING', 'Pending'),
         ('CONFIRMED', 'Confirmed'),
@@ -30,6 +32,7 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
+    objects = BaseManager()
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.PROTECT)

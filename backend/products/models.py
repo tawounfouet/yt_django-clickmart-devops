@@ -1,9 +1,11 @@
+from apps.core.managers import BaseManager
 from decimal import Decimal
 from django.db import models
 import uuid
 
 
 class Product(models.Model):
+    objects = BaseManager()
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)

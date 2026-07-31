@@ -1,3 +1,4 @@
+from apps.core.managers import BaseManager
 from decimal import Decimal
 from django.db import models
 from django.contrib.auth import get_user_model
@@ -8,6 +9,7 @@ User = get_user_model()
 
 
 class Cart(models.Model):
+    objects = BaseManager()
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -36,6 +38,7 @@ class Cart(models.Model):
 
 
 class CartItem(models.Model):
+    objects = BaseManager()
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
